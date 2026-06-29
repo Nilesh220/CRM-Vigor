@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import Modal from '../../components/ui/Modal';
 import AIImportModal from '../../components/ui/AIImportModal';
+import ImportCSVModal from '../../components/ui/ImportCSVModal';
 import { useToast, useSession } from '../../contexts/AppContext';
 import { VendorDB, ZONES, genId, logActivity, searchFilter, paginate, canExport, getZoneColor, exportToCSV } from '../../lib/data';
-import { Plus, Search, Download, Handshake, Edit2, Trash2, Eye, ChevronLeft, ChevronRight, X, Check, Sparkles } from 'lucide-react';
+import { Plus, Search, Download, Handshake, Edit2, Trash2, Eye, ChevronLeft, ChevronRight, X, Check, Sparkles, Linkedin, Globe, Clock, Upload } from 'lucide-react';
 
 const CATS = ['Fabrication','Event Management','Printing','On-Ground Activation','Photography/Video','Logistics','Catering','AV Equipment','Other'];
 const REGIONS = ['North','South','East','West','Central'];
@@ -32,6 +33,7 @@ export default function Vendors() {
   const [modal, setModal] = useState(false);
   const [viewModal, setViewModal] = useState(false);
   const [aiModal, setAiModal] = useState(false);
+  const [csvModal, setCsvModal] = useState(false);
   const [editId, setEditId] = useState(null);
   const [viewing, setViewing] = useState(null);
   const [form, setForm] = useState(emptyVendor());
@@ -44,6 +46,10 @@ export default function Vendors() {
 
   const filtered = (() => {
     let d = data;
+    // P4: vigorspace team members see only their own entries
+    if (session?.role === 'vigorspace') {
+      d = d.filter(v => v.createdBy === session.id);
+    }
     if (search) d = searchFilter(d, search, ['name','companyName','city','email','region','category']);
     if (filterZone) d = d.filter(v=>v.zone===filterZone);
     if (filterStatus) d = d.filter(v=>v.status===filterStatus);
@@ -77,6 +83,19 @@ export default function Vendors() {
     await VendorDB.remove(id); logActivity('Deleted','Vendor',v?.name||id);
     toast('Vendor deleted.','success'); refresh();
   }
+  async function handleCSVImport(rows) {
+    const items = rows.map(r => ({
+      ...emptyVendor(), id: genId('ven'), createdBy: session?.id, createdAt: new Date().toISOString(),
+      name: r.name || '', companyName: r.companyName || '', contactNumber: r.contactNumber || '',
+      email: r.email || '', city: r.city || '', zone: r.zone || '', region: r.region || '',
+      category: r.category || '', status: r.status || 'Active', comment: r.comment || '',
+      linkedinProfile: r.linkedinProfile || '', website: r.website || ''
+    }));
+    await VendorDB.bulkAdd(items);
+    logActivity('Imported', 'Vendor', `${items.length} vendors via CSV`);
+    refresh();
+  }
+
   function exportCSV() {
     if (!canExport()) { toast('Export access denied.','error'); return; }
     exportToCSV(VendorDB.all(), 'VL_Vendors.csv', {
@@ -103,6 +122,7 @@ export default function Vendors() {
         </div>
         <div className="page-header-right">
           {canExport()&&<button className="btn btn-secondary btn-sm" onClick={exportCSV}><Download size={13}/> Export</button>}
+          <button className="btn btn-secondary btn-sm" onClick={() => setCsvModal(true)}><Upload size={13}/> Import CSV</button>
           <button className="btn btn-ai btn-sm" onClick={() => setAiModal(true)}>
             <Sparkles size={13} /> AI Import
           </button>
@@ -237,6 +257,26 @@ export default function Vendors() {
         <div className="grid-2">
           <div>
             {[['Company',viewing.companyName],['Email',viewing.email],['Phone',viewing.contactNumber],['City',viewing.city],['Region',viewing.region],['Zone',ZONES[viewing.zone]?.label],['Category',viewing.category],['Status',viewing.status]].map(([k,v])=>v?<div key={k} className="info-row"><strong style={{width:80,color:'var(--text-3)',fontWeight:500,flexShrink:0}}>{k}</strong>{v}</div>:null)}
+            {/* Social/Web Links */}
+            <div style={{display:'flex',gap:8,marginTop:10,flexWrap:'wrap'}}>
+              {viewing.linkedinProfile && (
+                <a href={viewing.linkedinProfile.startsWith('http')?viewing.linkedinProfile:`https://${viewing.linkedinProfile}`} target="_blank" rel="noreferrer"
+                  className="btn btn-sm btn-secondary" style={{display:'flex',alignItems:'center',gap:5,color:'#0a66c2',textDecoration:'none'}}>
+                  <Linkedin size={13}/> LinkedIn
+                </a>
+              )}
+              {viewing.website && (
+                <a href={viewing.website.startsWith('http')?viewing.website:`https://${viewing.website}`} target="_blank" rel="noreferrer"
+                  className="btn btn-sm btn-secondary" style={{display:'flex',alignItems:'center',gap:5,textDecoration:'none'}}>
+                  <Globe size={13}/> Website
+                </a>
+              )}
+            </div>
+            {/* Date Modified */}
+            <div style={{display:'flex',gap:12,marginTop:10,fontSize:'.73rem',color:'var(--text-3)'}}>
+              {viewing.createdAt&&<span><Clock size={10} style={{marginRight:3}}/>Added: {new Date(viewing.createdAt).toLocaleString('en-IN',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}</span>}
+              {viewing.updatedAt&&<span><Clock size={10} style={{marginRight:3}}/>Edited: {new Date(viewing.updatedAt).toLocaleString('en-IN',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}</span>}
+            </div>
           </div>
           <div>
             <div style={{background:'var(--bg)',borderRadius:'var(--r-sm)',padding:14,marginBottom:12}}>
@@ -252,6 +292,19 @@ export default function Vendors() {
         </div>
       </Modal>}
       <AIImportModal open={aiModal} onClose={() => setAiModal(false)} entityType="vendor" onImported={refresh} />
+      <ImportCSVModal
+        open={csvModal} onClose={() => setCsvModal(false)} title="Import Vendors from CSV/Excel"
+        columns={[
+          { key: 'name', label: 'Vendor Name', required: true },
+          { key: 'companyName', label: 'Company Name' }, { key: 'contactNumber', label: 'Phone' },
+          { key: 'email', label: 'Email' }, { key: 'city', label: 'City' },
+          { key: 'zone', label: 'Zone' }, { key: 'region', label: 'Region' },
+          { key: 'category', label: 'Category' }, { key: 'status', label: 'Status' },
+          { key: 'linkedinProfile', label: 'LinkedIn' }, { key: 'website', label: 'Website' },
+          { key: 'comment', label: 'Notes' },
+        ]}
+        onImport={handleCSVImport}
+      />
     </div>
   );
 }

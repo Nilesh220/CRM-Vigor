@@ -60,6 +60,10 @@ export default function Colleges() {
 
   const filtered = (() => {
     let d = data;
+    // P4: vigorspace team members see only their own entries
+    if (session?.role === 'vigorspace') {
+      d = d.filter(c => c.createdBy === session.id);
+    }
     if (search) d = searchFilter(d, search, ['name','city','state','naacGrade','affiliation','festName']);
     if (filterZone) d = d.filter(c => c.zone === filterZone);
     if (filterNAAC) d = d.filter(c => c.naacGrade === filterNAAC);

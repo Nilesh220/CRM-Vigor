@@ -3,7 +3,7 @@ import Modal from '../../components/ui/Modal';
 import AIImportModal from '../../components/ui/AIImportModal';
 import { useToast, useSession } from '../../contexts/AppContext';
 import { InfluencerDB, genId, logActivity, searchFilter, paginate, canExport, getInfluencerTier, formatFollowers, ZONES, getZoneColor, exportToCSV } from '../../lib/data';
-import { Plus, Search, Download, Star, Edit2, Trash2, ChevronLeft, ChevronRight, X, Sparkles, ExternalLink } from 'lucide-react';
+import { Plus, Search, Download, Star, Edit2, Trash2, ChevronLeft, ChevronRight, X, Sparkles, ExternalLink, Instagram, Youtube } from 'lucide-react';
 
 const TIER_COLORS = { Nano:'badge-green', Micro:'badge-blue', 'Mid Micro':'badge-teal', Macro:'badge-purple', Mega:'badge-yellow' };
 const TIER_RANGES = { Nano:'1K–10K', Micro:'10K–35K', 'Mid Micro':'35K–100K', Macro:'100K–600K', Mega:'600K+' };
@@ -39,6 +39,10 @@ export default function CollegeInfluencers() {
 
   const filtered = (() => {
     let d = data;
+    // P4: vigorspace team members see only their own entries
+    if (session?.role === 'vigorspace') {
+      d = d.filter(i => i.createdBy === session.id);
+    }
     if (search) d = searchFilter(d, search, ['name','collegeName','city','genre','contentLanguage']);
     if (filterTier) d = d.filter(i => (i.tier||tier(i)) === filterTier);
     if (filterGender) d = d.filter(i => i.gender === filterGender);
@@ -177,7 +181,23 @@ export default function CollegeInfluencers() {
                     <tr key={inf.id}>
                       <td style={{ color: 'var(--text-3)', fontSize: '.78rem' }}>{(page-1)*PAGE+idx+1}</td>
                       <td><div className="cell-primary">{inf.name}</div></td>
-                      <td>{inf.instagramLink ? <a href={`https://${inf.instagramLink.replace('https://','')}`} target="_blank" rel="noreferrer" style={{ color: 'var(--primary)', fontSize: '.78rem', display: 'flex', alignItems: 'center', gap: 3 }}><ExternalLink size={11}/>Instagram</a> : '—'}</td>
+                      <td>
+                        <div style={{display:'flex',gap:4,alignItems:'center'}}>
+                          {inf.instagramLink ? (
+                            <a href={`https://${inf.instagramLink.replace('https://','')}`} target="_blank" rel="noreferrer"
+                              title={inf.instagramLink} style={{color:'#e1306c',display:'flex',alignItems:'center'}}>
+                              <Instagram size={15}/>
+                            </a>
+                          ) : null}
+                          {inf.youtubeLink ? (
+                            <a href={`https://${inf.youtubeLink.replace('https://','')}`} target="_blank" rel="noreferrer"
+                              title={inf.youtubeLink} style={{color:'#ff0000',display:'flex',alignItems:'center'}}>
+                              <Youtube size={15}/>
+                            </a>
+                          ) : null}
+                          {!inf.instagramLink && !inf.youtubeLink && <span style={{color:'var(--text-3)'}}>—</span>}
+                        </div>
+                      </td>
                       <td style={{ fontSize: '.8rem' }}>{inf.gender||'—'}</td>
                       <td style={{ fontWeight: 700 }}>{formatFollowers(inf.followers)}</td>
                       <td><span className={`badge ${TIER_COLORS[t] || 'badge-gray'}`}>{t}</span></td>

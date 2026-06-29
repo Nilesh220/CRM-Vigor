@@ -1801,3 +1801,35 @@ table.data-table { width: 100%; border-collapse: collapse; font-size: .82rem; }
   .capture-header { padding: 22px 20px; }
   .capture-form { padding: 20px; }
 }
+
+/* ============================================================ */
+/* P7 — Screenshot / Copy Restrictions (Deterrent layer)        */
+/* ============================================================ */
+/* Disable text selection on data tables and sensitive areas    */
+.data-table td, .data-table th,
+.detail-field span, .kpi-value, .cell-primary {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  user-select: none;
+}
+/* Allow selection on inputs and textareas */
+input, textarea, select { user-select: text; }
+/* Watermark overlay on page body (print media) */
+@media print {
+  body::before {
+    content: 'CONFIDENTIAL — VigorLaunchpad';
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(-35deg);
+    font-size: 64px;
+    font-weight: 900;
+    opacity: .07;
+    color: #000;
+    white-space: nowrap;
+    pointer-events: none;
+    z-index: 99999;
+  }
+  /* Hide sidebar, header actions on print */
+  .sidebar, .page-header-right, .row-actions, .modal-footer { display: none !important; }
+}

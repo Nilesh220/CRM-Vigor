@@ -2,15 +2,17 @@ import { useState, useEffect } from 'react';
 import { useSession, useToast } from '../contexts/AppContext';
 import Modal from '../components/ui/Modal';
 import {
-  LeadDB, getAllUsers, genId, logActivity, formatINR, formatDate, searchFilter, exportToCSV,
+  LeadDB, getAllUsers, genId, logActivity, formatINR, formatDate, formatDateTime, searchFilter, exportToCSV,
   LEAD_STATUSES, LEAD_STATUS_LABELS, LEAD_STATUS_COLORS, LEAD_SOURCES, BRAND_TYPES, LEAD_PRIORITIES,
   hasPermission
 } from '../lib/data';
 import CommentPanel from '../components/ui/CommentPanel';
+import ImportCSVModal from '../components/ui/ImportCSVModal';
 import {
   Plus, Search, Download, Upload, LayoutGrid, List, GripVertical,
   Phone, Mail, Calendar, DollarSign, User, Building2, Tag, ArrowRight,
-  MoreVertical, Edit2, Trash2, ChevronRight, Target, TrendingUp, AlertCircle, X, MessageSquare
+  MoreVertical, Edit2, Trash2, ChevronRight, Target, TrendingUp, AlertCircle, X, MessageSquare,
+  Linkedin, ExternalLink, Clock
 } from 'lucide-react';
 
 const PRIORITY_COLORS = { low: 'badge-gray', medium: 'badge-blue', high: 'badge-orange', urgent: 'badge-red' };
@@ -34,10 +36,12 @@ export default function Leads() {
   const [detailLead, setDetailLead] = useState(null);
   const [detailTab, setDetailTab] = useState('info');
   const [draggedId, setDraggedId] = useState(null);
+  const [csvModal, setCsvModal] = useState(false);
   const [form, setForm] = useState({
     brandName: '', pocName: '', pocEmail: '', pocPhone: '',
     category: '', brandType: '', source: '', status: 'new',
-    priority: 'medium', dealValue: '', notes: '', nextFollowUp: '', assignedTo: ''
+    priority: 'medium', dealValue: '', notes: '', nextFollowUp: '', assignedTo: '',
+    linkedinProfile: '', instagramHandle: ''
   });
 
   const users = getAllUsers();
@@ -62,7 +66,8 @@ export default function Leads() {
     setForm({
       brandName: '', pocName: '', pocEmail: '', pocPhone: '',
       category: '', brandType: '', source: '', status: 'new',
-      priority: 'medium', dealValue: '', notes: '', nextFollowUp: '', assignedTo: ''
+      priority: 'medium', dealValue: '', notes: '', nextFollowUp: '', assignedTo: '',
+      linkedinProfile: '', instagramHandle: ''
     });
     setModal(true);
   }
@@ -77,7 +82,8 @@ export default function Leads() {
       source: lead.source || '', status: lead.status || 'new',
       priority: lead.priority || 'medium', dealValue: lead.dealValue || '',
       notes: lead.notes || '', nextFollowUp: lead.nextFollowUp || '',
-      assignedTo: lead.assignedTo || ''
+      assignedTo: lead.assignedTo || '',
+      linkedinProfile: lead.linkedinProfile || '', instagramHandle: lead.instagramHandle || ''
     });
     setModal(true);
   }
@@ -155,6 +161,22 @@ export default function Leads() {
     toast('Leads exported', 'success');
   }
 
+  async function handleCSVImport(rows) {
+    const items = rows.map(r => ({
+      id: genId('lead'), createdBy: session?.id, createdAt: new Date().toISOString(),
+      addedByName: session?.name || 'Import',
+      brandName: r.brandName || '', pocName: r.pocName || '', pocEmail: r.pocEmail || '',
+      pocPhone: r.pocPhone || '', category: r.category || '', brandType: r.brandType || '',
+      source: r.source || '', status: r.status || 'new', priority: r.priority || 'medium',
+      dealValue: parseFloat(r.dealValue) || 0, notes: r.notes || '',
+      linkedinProfile: r.linkedinProfile || '', instagramHandle: r.instagramHandle || ''
+    }));
+    await LeadDB.bulkAdd(items);
+    logActivity('Imported', 'Lead', `${items.length} leads via CSV`);
+    const rows2 = await LeadDB.syncFromDB();
+    setLeads(rows2);
+  }
+
   // Stats
   const statusCounts = LEAD_STATUSES.reduce((acc, s) => {
     acc[s] = leads.filter(l => l.status === s).length;
@@ -172,6 +194,7 @@ export default function Leads() {
         </div>
         <div className="flex gap-2">
           <button className="btn btn-secondary" onClick={handleExport}><Download size={14} /> Export CSV</button>
+          <button className="btn btn-secondary" onClick={() => setCsvModal(true)}><Upload size={14} /> Import CSV</button>
           <button className="btn btn-primary" onClick={openAdd}><Plus size={14} /> New Lead</button>
         </div>
       </div>
@@ -374,6 +397,36 @@ export default function Leads() {
                     <div className="detail-field"><label>Deal Value</label><span style={{ fontWeight: 700, color: 'var(--success)' }}><DollarSign size={12} /> {detailLead.dealValue ? formatINR(detailLead.dealValue) : '—'}</span></div>
                     <div className="detail-field"><label>Follow-up</label><span><Calendar size={12} /> {detailLead.nextFollowUp ? formatDate(detailLead.nextFollowUp) : '—'}</span></div>
                   </div>
+                  {/* Social Media Links */}
+                  {(detailLead.linkedinProfile || detailLead.instagramHandle) && (
+                    <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
+                      {detailLead.linkedinProfile && (
+                        <a
+                          href={detailLead.linkedinProfile.startsWith('http') ? detailLead.linkedinProfile : `https://${detailLead.linkedinProfile}`}
+                          target="_blank" rel="noreferrer"
+                          className="btn btn-sm btn-secondary"
+                          style={{ display: 'flex', alignItems: 'center', gap: 5, color: '#0a66c2', textDecoration: 'none' }}
+                        >
+                          <Linkedin size={13} /> Open LinkedIn
+                        </a>
+                      )}
+                      {detailLead.instagramHandle && (
+                        <a
+                          href={`https://instagram.com/${detailLead.instagramHandle.replace('@', '')}`}
+                          target="_blank" rel="noreferrer"
+                          className="btn btn-sm btn-secondary"
+                          style={{ display: 'flex', alignItems: 'center', gap: 5, color: '#e1306c', textDecoration: 'none' }}
+                        >
+                          <ExternalLink size={13} /> Instagram
+                        </a>
+                      )}
+                    </div>
+                  )}
+                  {/* Date Modified */}
+                  <div style={{ display: 'flex', gap: 16, marginBottom: 14, fontSize: '.75rem', color: 'var(--text-3)' }}>
+                    {detailLead.createdAt && <span><Clock size={11} style={{ marginRight: 3 }} />Added: {formatDateTime(detailLead.createdAt)}</span>}
+                    {detailLead.updatedAt && <span><Clock size={11} style={{ marginRight: 3 }} />Edited: {formatDateTime(detailLead.updatedAt)}</span>}
+                  </div>
                   {detailLead.notes && (
                     <div style={{ marginBottom: 16 }}>
                       <label className="form-label">Notes</label>
@@ -475,11 +528,12 @@ export default function Leads() {
                 </div>
                 <div className="form-group">
                   <label className="form-label">Assigned To</label>
-                  <select className="select" value={form.assignedTo} onChange={e => setForm({ ...form, assignedTo: e.target.value })}>
+                  <select className="select" value={form.assignedTo || ''} onChange={e => setForm({ ...form, assignedTo: e.target.value })}>
                     <option value="">Unassigned</option>
                     <optgroup label="Teams">
                       <option value="VigorSpace Team">VigorSpace Team</option>
                       <option value="Influencer Team">Influencer Team</option>
+
                       <option value="Digital Team">Digital Team</option>
                       <option value="Operations Team">Operations Team</option>
                       <option value="Finance Team">Finance Team</option>
@@ -489,6 +543,16 @@ export default function Leads() {
                       {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
                     </optgroup>
                   </select>
+                </div>
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label className="form-label">LinkedIn Profile</label>
+                  <input className="input" placeholder="linkedin.com/in/..." value={form.linkedinProfile || ''} onChange={e => setForm({ ...form, linkedinProfile: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Instagram Handle</label>
+                  <input className="input" placeholder="@handle or username" value={form.instagramHandle || ''} onChange={e => setForm({ ...form, instagramHandle: e.target.value })} />
                 </div>
               </div>
               <div className="form-group">
@@ -503,6 +567,19 @@ export default function Leads() {
           </div>
         </div>
       )}
+      <ImportCSVModal
+        open={csvModal} onClose={() => setCsvModal(false)} title="Import Leads from CSV/Excel"
+        columns={[
+          { key: 'brandName', label: 'Brand Name', required: true }, { key: 'pocName', label: 'POC Name' },
+          { key: 'pocEmail', label: 'Email' }, { key: 'pocPhone', label: 'Phone' },
+          { key: 'category', label: 'Category' }, { key: 'brandType', label: 'Brand Type' },
+          { key: 'source', label: 'Source' }, { key: 'status', label: 'Status' },
+          { key: 'priority', label: 'Priority' }, { key: 'dealValue', label: 'Deal Value' },
+          { key: 'linkedinProfile', label: 'LinkedIn' }, { key: 'instagramHandle', label: 'Instagram' },
+          { key: 'notes', label: 'Notes' },
+        ]}
+        onImport={handleCSVImport}
+      />
     </div>
   );
 }

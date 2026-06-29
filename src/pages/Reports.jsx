@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useSession } from '../contexts/AppContext';
-import { getActivityLog, syncActivityFromDB, formatDateTime, timeAgo, canExport, logActivity, CollegeDB, InfluencerDB, VendorDB } from '../lib/data';
-import { FileBarChart, Activity, School, Star, Handshake, CheckSquare, TrendingUp, Users, Download, Filter } from 'lucide-react';
+import { getActivityLog, syncActivityFromDB, formatDateTime, timeAgo, canExport, logActivity, CollegeDB, InfluencerDB, VendorDB, LeadDB, TaskDB } from '../lib/data';
+import { FileBarChart, Activity, School, Star, Handshake, CheckSquare, TrendingUp, Users, Download, Filter, Calendar } from 'lucide-react';
 
 const ENTITY_ICONS = { College:School, Influencer:Star, Vendor:Handshake, Task:CheckSquare, Reimbursement:TrendingUp, User:Users, Revenue:TrendingUp, Budget:TrendingUp };
 const ENTITY_COLORS = { College:'#dbeafe', Influencer:'#ede9fe', Vendor:'#d1fae5', Task:'#fef3c7', Reimbursement:'#fee2e2', User:'#f0f9ff', Revenue:'#d1fae5', Budget:'#fef3c7' };
@@ -19,6 +19,10 @@ export default function Reports() {
   const [filterEntity, setFilterEntity] = useState('');
   const [page, setPage] = useState(1);
   const PAGE = 30;
+  // P5: Monthly report state
+  const now = new Date();
+  const [reportMonth, setReportMonth] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`);
+  const [reportTab, setReportTab] = useState('activity'); // 'activity' | 'monthly'
 
   useEffect(() => {
     syncActivityFromDB(500).then(all => {
@@ -65,6 +69,37 @@ export default function Reports() {
     acc[a.userName].push(a); return acc;
   },{});
 
+  // P5: Monthly report computation
+  const monthLog = log.filter(a => {
+    const d = new Date(a.timestamp);
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}` === reportMonth;
+  });
+  const monthByUser = monthLog.reduce((acc, a) => {
+    if (!acc[a.userName]) acc[a.userName] = { name: a.userName, added: 0, updated: 0, deleted: 0, exported: 0, total: 0 };
+    const key = a.action?.toLowerCase();
+    if (key === 'added' || key === 'created') acc[a.userName].added++;
+    else if (key === 'updated') acc[a.userName].updated++;
+    else if (key === 'deleted') acc[a.userName].deleted++;
+    else if (key === 'exported') acc[a.userName].exported++;
+    acc[a.userName].total++;
+    return acc;
+  }, {});
+  const monthUsers = Object.values(monthByUser).sort((a, b) => b.total - a.total);
+
+  function exportMonthlyReport() {
+    if (!canExport()) return;
+    if (!monthUsers.length) return;
+    const csv = [
+      'Member,Records Added,Records Updated,Records Deleted,Exports,Total Actions',
+      ...monthUsers.map(u => `"${u.name}",${u.added},${u.updated},${u.deleted},${u.exported},${u.total}`)
+    ].join('\n');
+    const a = document.createElement('a');
+    a.href = 'data:text/csv,' + encodeURIComponent(csv);
+    a.download = `VL_Report_${reportMonth}.csv`;
+    a.click();
+    logActivity('Exported', 'Monthly Report', reportMonth);
+  }
+
   const kpis = [
     {label:'All Time Actions',value:log.length,c:'#2563eb',bg:'#eff6ff'},
     {label:'Today\'s Actions',value:todayLog.length,c:'#10b981',bg:'#ecfdf5'},
@@ -98,6 +133,71 @@ export default function Reports() {
       </div>
 
       <div className="page-body">
+        {/* P5: View Toggle */}
+        {isLead && (
+          <div className="tabs" style={{ marginBottom: 18 }}>
+            <button className={`tab-btn ${reportTab === 'activity' ? 'active' : ''}`} onClick={() => setReportTab('activity')}>
+              <Activity size={13} style={{ marginRight: 6 }} /> Activity Log
+            </button>
+            <button className={`tab-btn ${reportTab === 'monthly' ? 'active' : ''}`} onClick={() => setReportTab('monthly')}>
+              <Calendar size={13} style={{ marginRight: 6 }} /> Monthly Employee Report
+            </button>
+          </div>
+        )}
+        {/* P5: Monthly Report Tab */}
+        {reportTab === 'monthly' && isLead && (
+          <div>
+            <div className="card" style={{ marginBottom: 16 }}>
+              <div className="card-header">
+                <div>
+                  <div className="card-title">Monthly Employee Report</div>
+                  <div className="card-subtitle">Actions performed by each team member in the selected month</div>
+                </div>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <input type="month" className="input" style={{ width: 'auto', padding: '6px 10px' }}
+                    value={reportMonth} onChange={e => setReportMonth(e.target.value)} />
+                  {canExport() && <button className="btn btn-primary btn-sm" onClick={exportMonthlyReport}><Download size={13} /> Download CSV</button>}
+                </div>
+              </div>
+              {monthUsers.length === 0 ? (
+                <div className="empty-state" style={{ padding: 40 }}>
+                  <Calendar size={36} color="var(--border-2)" />
+                  <div className="empty-state-title">No activity for this month</div>
+                </div>
+              ) : (
+                <div className="table-wrap" style={{ borderRadius: 0, border: 'none', borderTop: '1px solid var(--border)' }}>
+                  <table className="data-table">
+                    <thead>
+                      <tr><th>Team Member</th><th>Records Added</th><th>Records Updated</th><th>Records Deleted</th><th>Exports</th><th>Total Actions</th></tr>
+                    </thead>
+                    <tbody>
+                      {monthUsers.map(u => (
+                        <tr key={u.name}>
+                          <td>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <div className="avatar avatar-sm">{u.name.split(' ').map(w => w[0]).join('').slice(0, 2)}</div>
+                              <span style={{ fontWeight: 600 }}>{u.name}</span>
+                            </div>
+                          </td>
+                          <td><span className="badge badge-green">{u.added}</span></td>
+                          <td><span className="badge badge-blue">{u.updated}</span></td>
+                          <td><span className="badge badge-red">{u.deleted}</span></td>
+                          <td><span className="badge badge-purple">{u.exported}</span></td>
+                          <td><strong style={{ color: u.total > 20 ? 'var(--success)' : 'var(--text)' }}>{u.total}</strong></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Activity Log Tab */}
+        {(reportTab === 'activity' || !isLead) && (
+          <>
+        {/* KPIs */}
         <div className="kpi-grid" style={{gridTemplateColumns:'repeat(auto-fill,minmax(160px,1fr))'}}>
           {kpis.map(k=>(
             <div key={k.label} className="kpi-card" style={{'--kpi-accent':k.c}}>
@@ -202,6 +302,7 @@ export default function Reports() {
             </div>
           </div>
         </div>
+        </>)}
       </div>
     </div>
   );

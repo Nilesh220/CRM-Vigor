@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import Modal from '../components/ui/Modal';
 import AIImportModal from '../components/ui/AIImportModal';
+import ImportCSVModal from '../components/ui/ImportCSVModal';
 import { useToast, useSession } from '../contexts/AppContext';
 import {
   InfluencerDB, CampaignDB, ShortlistDB, genId, logActivity, searchFilter,
@@ -9,7 +10,8 @@ import {
 } from '../lib/data';
 import {
   Plus, Search, Download, Star, Edit2, Trash2, ChevronLeft, ChevronRight, X,
-  Zap, ExternalLink, Instagram, Sparkles, List, FileText, Check, AlertCircle, Eye
+  Zap, ExternalLink, Instagram, Sparkles, List, FileText, Check, AlertCircle, Eye,
+  Youtube, Clock, Upload
 } from 'lucide-react';
 
 const TIER_COLORS = { Nano: 'badge-green', Micro: 'badge-blue', 'Mid Micro': 'badge-teal', Macro: 'badge-purple', Mega: 'badge-yellow' };
@@ -55,6 +57,7 @@ export default function Influencers() {
 
   const [modal, setModal] = useState(false);
   const [aiModal, setAiModal] = useState(false);
+  const [csvModal, setCsvModal] = useState(false);
   const [editId, setEditId] = useState(null);
   const [form, setForm] = useState(emptyInfluencer());
 
@@ -86,6 +89,10 @@ export default function Influencers() {
   // Filters for creator database
   const filtered = (() => {
     let d = data;
+    // P4: Team scoping — influencer role sees only their own entries
+    if (session?.role === 'influencer') {
+      d = d.filter(i => i.createdBy === session.id);
+    }
     if (search) d = searchFilter(d, search, ['name', 'collegeName', 'city', 'genre', 'contentLanguage']);
     if (filterTier) d = d.filter(i => (i.tier || tier(i)) === filterTier);
     if (filterGender) d = d.filter(i => i.gender === filterGender);
@@ -123,6 +130,19 @@ export default function Influencers() {
     if (!confirm(`Delete "${inf?.name}"?`)) return;
     await InfluencerDB.remove(id); logActivity('Deleted', 'Influencer', inf?.name || id);
     toast('Influencer deleted.', 'success'); refresh();
+  }
+
+  async function handleCSVImport(rows) {
+    const items = rows.map(r => ({
+      ...emptyInfluencer(), id: genId('inf'), createdBy: session?.id, createdAt: new Date().toISOString(), type: 'creator',
+      name: r.name || '', instagramLink: r.instagramLink || '', gender: r.gender || '',
+      followers: parseInt(r.followers) || 0, genre: r.genre || '', collegeName: r.collegeName || '',
+      city: r.city || '', zone: r.zone || '', contactNumber: r.contactNumber || '',
+      contentLanguage: r.contentLanguage || '', youtubeLink: r.youtubeLink || '', status: r.status || 'Active',
+    })).map(i => ({ ...i, tier: getInfluencerTier(i.followers) }));
+    await InfluencerDB.bulkAdd(items);
+    logActivity('Imported', 'Influencer', `${items.length} influencers via CSV`);
+    refresh();
   }
 
   function exportCSV() {
@@ -200,6 +220,7 @@ export default function Influencers() {
         {activeTab === 'database' && (
           <div className="flex gap-2">
             {canExport() && <button className="btn btn-secondary btn-sm" onClick={exportCSV}><Download size={13} /> Export</button>}
+            <button className="btn btn-secondary btn-sm" onClick={() => setCsvModal(true)}><Upload size={13} /> Import CSV</button>
             <button className="btn btn-ai btn-sm" onClick={() => setAiModal(true)}>
               <Sparkles size={13} /> AI Import
             </button>
@@ -269,7 +290,25 @@ export default function Influencers() {
                       <tr key={inf.id}>
                         <td style={{ color: 'var(--text-3)', fontSize: '.78rem' }}>{(page - 1) * PAGE + idx + 1}</td>
                         <td><div className="cell-primary">{inf.name}</div></td>
-                        <td>{inf.instagramLink ? <a href={`https://${inf.instagramLink.replace('https://', '')}`} target="_blank" rel="noreferrer" style={{ color: 'var(--primary)', fontSize: '.78rem', display: 'flex', alignItems: 'center', gap: 3 }}><ExternalLink size={11} />Instagram</a> : '—'}</td>
+                        <td>
+                          <div style={{display:'flex',gap:4,alignItems:'center'}}>
+                            {inf.instagramLink ? (
+                              <a href={`https://${inf.instagramLink.replace('https://', '')}`} target="_blank" rel="noreferrer"
+                                title={inf.instagramLink}
+                                style={{ color: '#e1306c', display: 'flex', alignItems: 'center' }}>
+                                <Instagram size={15} />
+                              </a>
+                            ) : null}
+                            {inf.youtubeLink ? (
+                              <a href={`https://${inf.youtubeLink.replace('https://', '')}`} target="_blank" rel="noreferrer"
+                                title={inf.youtubeLink}
+                                style={{ color: '#ff0000', display: 'flex', alignItems: 'center' }}>
+                                <Youtube size={15} />
+                              </a>
+                            ) : null}
+                            {!inf.instagramLink && !inf.youtubeLink && <span style={{color:'var(--text-3)'}}>—</span>}
+                          </div>
+                        </td>
                         <td style={{ fontSize: '.8rem' }}>{inf.gender || '—'}</td>
                         <td style={{ fontWeight: 700 }}>{formatFollowers(inf.followers)}</td>
                         <td><span className={`badge ${TIER_COLORS[t] || 'badge-gray'}`}>{t}</span></td>
@@ -282,7 +321,7 @@ export default function Influencers() {
                         <td><span className={`badge ${STATUS_COLORS[inf.status] || 'badge-gray'}`}>{inf.status}</span></td>
                         <td>
                           <div className="row-actions">
-                            <button className="btn btn-ghost btn-icon" onClick={() => openEdit(inf)}><Edit2 size={14} /></button>
+                            <button className="btn btn-ghost btn-icon" title={inf.updatedAt ? `Last edited: ${new Date(inf.updatedAt).toLocaleString('en-IN',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}` : inf.createdAt ? `Added: ${new Date(inf.createdAt).toLocaleString('en-IN',{day:'2-digit',month:'short'})}` : ''} onClick={() => openEdit(inf)}><Edit2 size={14} /></button>
                             <button className="btn btn-ghost btn-icon" style={{ color: 'var(--danger)' }} onClick={() => del(inf.id)}><Trash2 size={14} /></button>
                           </div>
                         </td>
@@ -496,6 +535,18 @@ export default function Influencers() {
         </div>
       </Modal>
       <AIImportModal open={aiModal} onClose={() => setAiModal(false)} entityType="influencer" onImported={refresh} />
+      <ImportCSVModal
+        open={csvModal} onClose={() => setCsvModal(false)} title="Import Influencers from CSV/Excel"
+        columns={[
+          { key: 'name', label: 'Name', required: true }, { key: 'instagramLink', label: 'Instagram Link' },
+          { key: 'gender', label: 'Gender' }, { key: 'followers', label: 'Followers' },
+          { key: 'genre', label: 'Genre/Niche' }, { key: 'collegeName', label: 'College' },
+          { key: 'city', label: 'City' }, { key: 'zone', label: 'Zone' },
+          { key: 'contactNumber', label: 'Contact Number' }, { key: 'contentLanguage', label: 'Language' },
+          { key: 'youtubeLink', label: 'YouTube Link' }, { key: 'status', label: 'Status' },
+        ]}
+        onImport={handleCSVImport}
+      />
     </div>
   );
 }

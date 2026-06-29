@@ -8,6 +8,7 @@ import Clients from './pages/Clients';
 import Campaigns from './pages/Campaigns';
 import Events from './pages/Events';
 import ZoneOverview from './pages/vigorspace/ZoneOverview';
+import MapView from './pages/vigorspace/MapView';
 import Colleges from './pages/vigorspace/Colleges';
 import Vendors from './pages/vigorspace/Vendors';
 import CollegeInfluencers from './pages/vigorspace/CollegeInfluencers';
@@ -57,6 +58,7 @@ function Router() {
           <Route path="campaigns" element={<PageGuard pageKey="campaigns"><Campaigns /></PageGuard>} />
           <Route path="events" element={<PageGuard pageKey="events"><Events /></PageGuard>} />
           <Route path="vigorspace" element={<PageGuard pageKey="vigorspace"><ZoneOverview /></PageGuard>} />
+          <Route path="map-view" element={<PageGuard pageKey="vigorspace"><MapView /></PageGuard>} />
           <Route path="colleges" element={<PageGuard pageKey="colleges"><Colleges /></PageGuard>} />
           <Route path="vendors" element={<PageGuard pageKey="vendors"><Vendors /></PageGuard>} />
           <Route path="vigorspace/college-influencers" element={<PageGuard pageKey="college_influencers"><CollegeInfluencers /></PageGuard>} />
