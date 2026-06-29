@@ -35,26 +35,42 @@ export default function SecurityLayer() {
       }
     }
 
-    // Capture Windows+Shift+S or Command+Shift+S key combos
+    // Capture Windows+Shift+S, PrintScreen, or Command+Shift+S key combos
     function onKeyDown(e) {
+      const isMeta = e.key === 'Meta' || e.key === 'OS' || e.keyCode === 91 || e.keyCode === 92;
       const isShiftS = (e.key === 's' || e.key === 'S') && e.shiftKey && (e.metaKey || e.ctrlKey);
-      const isPrintScreen = e.key === 'PrintScreen' || e.key === 'ScreenShot';
-      if (isShiftS || isPrintScreen) {
+      const isPrintScreen = e.key === 'PrintScreen' || e.key === 'ScreenShot' || e.keyCode === 44;
+
+      if (isMeta || isShiftS || isPrintScreen) {
         triggerProtect();
-        e.preventDefault();
-        e.stopPropagation();
+        // Repeatedly wipe clipboard to overwrite any system-captured screenshot
+        for (let i = 0; i < 5; i++) {
+          setTimeout(() => {
+            navigator.clipboard?.writeText('CONFIDENTIAL CONTENT - COPY RESTRICTED').catch(() => {});
+          }, i * 100);
+        }
+      }
+    }
+
+    function onKeyUp(e) {
+      const isPrintScreen = e.key === 'PrintScreen' || e.key === 'ScreenShot' || e.keyCode === 44;
+      if (isPrintScreen) {
+        triggerProtect();
+        navigator.clipboard?.writeText('CONFIDENTIAL CONTENT - COPY RESTRICTED').catch(() => {});
       }
     }
 
     window.addEventListener('blur', onBlur);
     window.addEventListener('focus', onFocus);
     window.addEventListener('keydown', onKeyDown, true);
+    window.addEventListener('keyup', onKeyUp, true);
     document.addEventListener('visibilitychange', onVisibilityChange);
 
     return () => {
       window.removeEventListener('blur', onBlur);
       window.removeEventListener('focus', onFocus);
       window.removeEventListener('keydown', onKeyDown, true);
+      window.removeEventListener('keyup', onKeyUp, true);
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
   }, []);
