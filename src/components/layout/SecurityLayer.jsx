@@ -18,32 +18,44 @@ export default function SecurityLayer() {
 
   // ── Blur on window/tab focus loss ──────────────────────────
   useEffect(() => {
+    function triggerProtect() {
+      setBlurred(true);
+      navigator.clipboard?.writeText('').catch(() => {});
+    }
+
     function onBlur() {
-      // Small delay so normal browser UI interactions don't trigger it
-      timeoutRef.current = setTimeout(() => setBlurred(true), 150);
+      triggerProtect();
     }
     function onFocus() {
-      clearTimeout(timeoutRef.current);
-      setBlurred(false);
+      // Keep blurred state until explicit click to ensure they don't snapshot on rapid toggle
     }
     function onVisibilityChange() {
       if (document.hidden) {
-        timeoutRef.current = setTimeout(() => setBlurred(true), 150);
-      } else {
-        clearTimeout(timeoutRef.current);
-        setBlurred(false);
+        triggerProtect();
+      }
+    }
+
+    // Capture Windows+Shift+S or Command+Shift+S key combos
+    function onKeyDown(e) {
+      const isShiftS = (e.key === 's' || e.key === 'S') && e.shiftKey && (e.metaKey || e.ctrlKey);
+      const isPrintScreen = e.key === 'PrintScreen' || e.key === 'ScreenShot';
+      if (isShiftS || isPrintScreen) {
+        triggerProtect();
+        e.preventDefault();
+        e.stopPropagation();
       }
     }
 
     window.addEventListener('blur', onBlur);
     window.addEventListener('focus', onFocus);
+    window.addEventListener('keydown', onKeyDown, true);
     document.addEventListener('visibilitychange', onVisibilityChange);
 
     return () => {
       window.removeEventListener('blur', onBlur);
       window.removeEventListener('focus', onFocus);
+      window.removeEventListener('keydown', onKeyDown, true);
       document.removeEventListener('visibilitychange', onVisibilityChange);
-      clearTimeout(timeoutRef.current);
     };
   }, []);
 
@@ -98,9 +110,7 @@ export default function SecurityLayer() {
             position: 'fixed',
             inset: 0,
             zIndex: 9999,
-            backdropFilter: 'blur(24px)',
-            WebkitBackdropFilter: 'blur(24px)',
-            background: 'rgba(15,23,42,0.55)',
+            background: '#090d16', // Solid opaque dark color so absolutely no content shines through
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
@@ -112,13 +122,13 @@ export default function SecurityLayer() {
           onClick={() => setBlurred(false)}
         >
           <div style={{
-            background: 'rgba(255,255,255,0.07)',
-            border: '1px solid rgba(255,255,255,0.15)',
+            background: 'rgba(255,255,255,0.05)',
+            border: '1px solid rgba(255,255,255,0.1)',
             borderRadius: 20,
             padding: '32px 40px',
             textAlign: 'center',
-            backdropFilter: 'blur(10px)',
             color: '#fff',
+            maxWidth: '90%',
           }}>
             <div style={{ fontSize: '2.5rem', marginBottom: 12 }}>🔒</div>
             <div style={{ fontWeight: 800, fontSize: '1.1rem', marginBottom: 6 }}>
@@ -134,8 +144,9 @@ export default function SecurityLayer() {
               background: 'rgba(255,255,255,.08)',
               borderRadius: 99,
               display: 'inline-block',
+              cursor: 'pointer',
             }}>
-              Click anywhere to continue
+              Click anywhere to resume
             </div>
           </div>
         </div>
@@ -144,8 +155,9 @@ export default function SecurityLayer() {
       {/* ── Page content ── */}
       <div
         style={{
-          filter: blurred ? 'blur(20px)' : 'none',
-          transition: 'filter 0.1s',
+          visibility: blurred ? 'hidden' : 'visible',
+          opacity: blurred ? 0 : 1,
+          transition: 'opacity 0.08s ease',
           userSelect: 'none',
           WebkitUserSelect: 'none',
         }}
