@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import Modal from '../../components/ui/Modal';
+import MaskedContact from '../../components/ui/MaskedContact';
 import AIImportModal from '../../components/ui/AIImportModal';
 import ImportCSVModal from '../../components/ui/ImportCSVModal';
 import { useToast, useSession } from '../../contexts/AppContext';
@@ -171,7 +172,7 @@ export default function Vendors() {
                     <td>{v.zone&&<span style={{fontSize:'.7rem',fontWeight:700,color:getZoneColor(v.zone),background:`${getZoneColor(v.zone)}18`,padding:'2px 8px',borderRadius:'99px'}}>{ZONES[v.zone]?.label.replace(' Zone','')}</span>}</td>
                     <td><div style={{fontSize:'.82rem'}}>{v.region}</div><div className="cell-sub">{v.city}</div></td>
                     <td>{v.category?<span className="chip">{v.category}</span>:'—'}</td>
-                    <td style={{fontSize:'.8rem'}}>{v.contactNumber||'—'}</td>
+                    <td style={{fontSize:'.8rem'}}><MaskedContact value={v.contactNumber} type="phone" /></td>
                     <td style={{fontWeight:600}}>{v.manPower||0}</td>
                     <td>{v.collegePermission?<Check size={14} color="var(--success)"/>:<span style={{color:'var(--border-2)'}}>—</span>}</td>
                     <td>{v.schoolPermission?<Check size={14} color="var(--success)"/>:<span style={{color:'var(--border-2)'}}>—</span>}</td>
@@ -256,7 +257,7 @@ export default function Vendors() {
         footer={<><button className="btn btn-secondary" onClick={()=>setViewModal(false)}>Close</button><button className="btn btn-primary" onClick={()=>{setViewModal(false);openEdit(viewing);}}>Edit</button></>}>
         <div className="grid-2">
           <div>
-            {[['Company',viewing.companyName],['Email',viewing.email],['Phone',viewing.contactNumber],['City',viewing.city],['Region',viewing.region],['Zone',ZONES[viewing.zone]?.label],['Category',viewing.category],['Status',viewing.status]].map(([k,v])=>v?<div key={k} className="info-row"><strong style={{width:80,color:'var(--text-3)',fontWeight:500,flexShrink:0}}>{k}</strong>{v}</div>:null)}
+            {[['Company',viewing.companyName],['Email',viewing.email],['Phone',viewing.contactNumber],['City',viewing.city],['Region',viewing.region],['Zone',ZONES[viewing.zone]?.label],['Category',viewing.category],['Status',viewing.status]].map(([k,v])=>v?<div key={k} className="info-row"><strong style={{width:80,color:'var(--text-3)',fontWeight:500,flexShrink:0}}>{k}</strong>{k === 'Email' ? <MaskedContact value={v} type="email" /> : k === 'Phone' ? <MaskedContact value={v} type="phone" /> : v}</div>:null)}
             {/* Social/Web Links */}
             <div style={{display:'flex',gap:8,marginTop:10,flexWrap:'wrap'}}>
               {viewing.linkedinProfile && (

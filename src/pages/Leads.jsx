@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useSession, useToast } from '../contexts/AppContext';
 import Modal from '../components/ui/Modal';
+import MaskedContact from '../components/ui/MaskedContact';
 import {
   LeadDB, getAllUsers, genId, logActivity, formatINR, formatDate, formatDateTime, searchFilter, exportToCSV,
   LEAD_STATUSES, LEAD_STATUS_LABELS, LEAD_STATUS_COLORS, LEAD_SOURCES, BRAND_TYPES, LEAD_PRIORITIES,
@@ -325,8 +326,8 @@ export default function Leads() {
                   <td>{lead.pocName || '—'}</td>
                   <td>{lead.category || '—'}</td>
                   <td>{lead.brandType || '—'}</td>
-                  <td style={{ fontSize: '.78rem', color: 'var(--text-2)' }}>{lead.pocEmail || '—'}</td>
-                  <td style={{ fontSize: '.78rem' }}>{lead.pocPhone || '—'}</td>
+                  <td style={{ fontSize: '.78rem', color: 'var(--text-2)' }}><MaskedContact value={lead.pocEmail} type="email" /></td>
+                  <td style={{ fontSize: '.78rem' }}><MaskedContact value={lead.pocPhone} type="phone" /></td>
                   <td>{lead.source || '—'}</td>
                   <td style={{ fontWeight: 600 }}>{lead.dealValue ? formatINR(lead.dealValue) : '—'}</td>
                   <td>
@@ -389,8 +390,8 @@ export default function Leads() {
                 <>
                   <div className="grid-2" style={{ gap: 12, marginBottom: 16 }}>
                     <div className="detail-field"><label>POC Name</label><span><User size={12} /> {detailLead.pocName || '—'}</span></div>
-                    <div className="detail-field"><label>Phone</label><span><Phone size={12} /> {detailLead.pocPhone || '—'}</span></div>
-                    <div className="detail-field"><label>Email</label><span><Mail size={12} /> {detailLead.pocEmail || '—'}</span></div>
+                    <div className="detail-field"><label>Phone</label><span><Phone size={12} /> <MaskedContact value={detailLead.pocPhone} type="phone" /></span></div>
+                    <div className="detail-field"><label>Email</label><span><Mail size={12} /> <MaskedContact value={detailLead.pocEmail} type="email" /></span></div>
                     <div className="detail-field"><label>Category</label><span><Tag size={12} /> {detailLead.category || '—'}</span></div>
                     <div className="detail-field"><label>Brand Type</label><span><Building2 size={12} /> {detailLead.brandType || '—'}</span></div>
                     <div className="detail-field"><label>Source</label><span><Target size={12} /> {detailLead.source || '—'}</span></div>

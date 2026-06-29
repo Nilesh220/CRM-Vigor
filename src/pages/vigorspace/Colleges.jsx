@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import Modal from '../../components/ui/Modal';
+import MaskedContact from '../../components/ui/MaskedContact';
 import AIImportModal from '../../components/ui/AIImportModal';
 import { useToast, useSession } from '../../contexts/AppContext';
 import {
@@ -400,8 +401,8 @@ export default function Colleges() {
                   <div key={i} className="contact-card-item">
                     <div className="contact-type-label">{c.type||'Contact'}</div>
                     {c.name && <div className="info-row"><Globe size={11}/>{c.name}{c.designation?` — ${c.designation}`:''}</div>}
-                    {c.phone && <div className="info-row"><Phone size={11}/>{c.phone}</div>}
-                    {c.email && <div className="info-row"><Mail size={11}/>{c.email}</div>}
+                    {c.phone && <div className="info-row"><Phone size={11}/><MaskedContact value={c.phone} type="phone" /></div>}
+                    {c.email && <div className="info-row"><Mail size={11}/><MaskedContact value={c.email} type="email" /></div>}
                   </div>
                 ))}
               </div>

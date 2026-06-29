@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import Modal from '../components/ui/Modal';
+import MaskedContact from '../components/ui/MaskedContact';
 import AIImportModal from '../components/ui/AIImportModal';
 import ImportCSVModal from '../components/ui/ImportCSVModal';
 import { useToast, useSession } from '../contexts/AppContext';
@@ -316,7 +317,7 @@ export default function Influencers() {
                         <td><div style={{ fontSize: '.8rem' }}>{inf.collegeName || '—'}</div><div className="cell-sub">{inf.city}</div></td>
                         <td>{formatFollowers(inf.avgViews || 0)}</td>
                         <td><span style={{ fontWeight: 700, color: (inf.erPercent || 0) > 5 ? 'var(--success)' : 'var(--text)' }}>{inf.erPercent || 0}%</span></td>
-                        <td style={{ fontSize: '.8rem' }}>{inf.contactNumber || '—'}</td>
+                        <td style={{ fontSize: '.8rem' }}><MaskedContact value={inf.contactNumber} type="phone" /></td>
                         <td style={{ fontSize: '.76rem' }}>{inf.contentLanguage || '—'}</td>
                         <td><span className={`badge ${STATUS_COLORS[inf.status] || 'badge-gray'}`}>{inf.status}</span></td>
                         <td>
