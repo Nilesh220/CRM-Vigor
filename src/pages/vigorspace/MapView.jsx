@@ -112,7 +112,7 @@ export default function MapView() {
 
   /* ─────────────────────────────────────────────────────────── */
   return (
-    <div style={{ paddingBottom: 60 }}>
+    <div className="page-body" style={{ paddingBottom: 60 }}>
 
       {/* ── BREADCRUMB ─────────────────────────────────────────── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 22, flexWrap: 'wrap' }}>
