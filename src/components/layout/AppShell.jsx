@@ -1,6 +1,7 @@
 import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import TopHeader from './TopHeader';
+import SecurityLayer from './SecurityLayer';
 
 export default function AppShell() {
   return (
@@ -8,7 +9,7 @@ export default function AppShell() {
       <Sidebar />
       <div className="layout-main">
         <TopHeader />
-        <Outlet />
+        <SecurityLayer />
       </div>
     </div>
   );

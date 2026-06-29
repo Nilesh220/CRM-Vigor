@@ -1833,3 +1833,45 @@ input, textarea, select { user-select: text; }
   /* Hide sidebar, header actions on print */
   .sidebar, .page-header-right, .row-actions, .modal-footer { display: none !important; }
 }
+
+/* ============================================================ */
+/* SECURITY — Hardened copy & screenshot restrictions           */
+/* ============================================================ */
+
+/* Disable text selection globally */
+body, .layout, .layout-main, .page-body,
+.card, .data-table, table, td, th,
+.kpi-value, .cell-primary, .modal-body,
+.sidebar, .page-header {
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  user-select: none !important;
+}
+
+/* Re-enable ONLY in form fields */
+input, textarea, select,
+input *, textarea * {
+  -webkit-user-select: text !important;
+  user-select: text !important;
+}
+
+/* Print: full CONFIDENTIAL watermark + hide UI chrome */
+@media print {
+  body::after {
+    content: 'CONFIDENTIAL — VIGOR LAUNCHPAD';
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(-40deg);
+    font-size: 5vw;
+    font-weight: 900;
+    opacity: .08;
+    color: #000;
+    white-space: nowrap;
+    pointer-events: none;
+    z-index: 999999;
+  }
+  .sidebar, .page-header, .top-header,
+  .row-actions, .modal, .btn { display: none !important; }
+}
