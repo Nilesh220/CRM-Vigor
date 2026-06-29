@@ -100,20 +100,21 @@ export default function SecurityLayer() {
             key={i}
             style={{
               position: 'absolute',
-              left: `${(i % 5) * 22 - 5}%`,
-              top: `${Math.floor(i / 5) * 22 - 5}%`,
-              transform: 'rotate(-30deg)',
-              fontSize: '.7rem',
-              fontWeight: 700,
-              color: 'rgba(0,0,0,0.045)',
+              left: `${(i % 5) * 22 - 3}%`,
+              top: `${Math.floor(i / 5) * 22 - 3}%`,
+              transform: 'rotate(-25deg)',
+              fontSize: '.75rem',
+              fontWeight: 800,
+              color: 'rgba(15,23,42,0.075)', // Increased opacity for trace visibility
               whiteSpace: 'nowrap',
-              letterSpacing: '.04em',
+              letterSpacing: '.05em',
               fontFamily: 'monospace',
               lineHeight: 1.6,
             }}
           >
-            <div>VIGOR CONFIDENTIAL</div>
-            <div style={{ fontSize: '.62rem', fontWeight: 400 }}>{userName}</div>
+            <div>VIGOR LAUNCHPAD CONFIDENTIAL</div>
+            <div style={{ fontSize: '.68rem', fontWeight: 700, color: 'rgba(15,23,42,0.085)' }}>{userName}</div>
+            {userEmail && <div style={{ fontSize: '.60rem', fontWeight: 400, opacity: .9 }}>{userEmail}</div>}
             <div style={{ fontSize: '.58rem', fontWeight: 400, opacity: .8 }}>{now}</div>
           </div>
         ))}
