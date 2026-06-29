@@ -1875,3 +1875,41 @@ input *, textarea * {
   .sidebar, .page-header, .top-header,
   .row-actions, .modal, .btn { display: none !important; }
 }
+
+/* ============================================================ */
+/* EXTRAORDINARY PROTECTION: Hover to Reveal / Spy Mode         */
+/* ============================================================ */
+/* Blurs all data by default, making screenshots of the entire page useless.
+   Only the hovered row or card reveals its content. */
+
+.data-table tbody tr td,
+.detail-field span,
+.kpi-value,
+.kpi-card .kpi-value,
+.cell-primary,
+.metric-card div,
+.stat-card div {
+  filter: blur(7px);
+  opacity: 0.15;
+  transition: filter 0.15s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Keep action buttons and links visible, just blur text/numbers */
+.data-table tbody tr td a,
+.data-table tbody tr td button,
+.data-table tbody tr td .row-actions {
+  filter: none !important;
+  opacity: 1 !important;
+}
+
+/* Reveal on hover */
+.data-table tbody tr:hover td,
+.detail-field:hover span,
+.kpi-card:hover .kpi-value,
+.card:hover .cell-primary,
+.card:hover .kpi-value,
+.metric-card:hover div,
+.stat-card:hover div {
+  filter: blur(0px) !important;
+  opacity: 1 !important;
+}
