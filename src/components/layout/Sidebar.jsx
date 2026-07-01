@@ -86,7 +86,7 @@ export default function Sidebar() {
           const Icon = item.icon;
           return (
             <NavLink
-              key={item.key}
+              key={item.to}
               to={item.to}
               end={item.to === '/'}
               className={({isActive}) => `nav-item ${item.indent ? 'nav-sub' : ''} ${isActive ? 'active' : ''}`}
