@@ -17,10 +17,10 @@ const CONTACT_TYPES = [
 ];
 
 const LEAD_TYPES = [
-  { value: 'vendor',   emoji: '🏪', label: 'Vendor',        desc: 'Offer services for events',   color: '#f59e0b' },
-  { value: 'creator',  emoji: '⭐', label: 'Creator',       desc: 'College influencer',           color: '#ec4899' },
-  { value: 'college',  emoji: '🎓', label: 'College',       desc: 'Host activations',             color: '#10b981' },
-  { value: 'poc',      emoji: '🤝', label: 'College POC',   desc: 'Faculty / Committee contact',  color: '#3b82f6' },
+  { value: 'vendor',   icon: Handshake,     label: 'Vendor',        desc: 'Offer services for events',   color: '#f59e0b' },
+  { value: 'creator',  icon: Star,          label: 'Creator',       desc: 'College influencer',           color: '#ec4899' },
+  { value: 'college',  icon: GraduationCap, label: 'College',       desc: 'Host activations',             color: '#10b981' },
+  { value: 'poc',      icon: Users,         label: 'College POC',   desc: 'Faculty / Committee contact',  color: '#3b82f6' },
 ];
 
 const YES_NO = ['Yes', 'No'];
@@ -147,7 +147,7 @@ export default function CaptureForm() {
           <div className="capture-success-icon">
             <CheckCircle2 size={52} strokeWidth={1.5} />
           </div>
-          <h2>Submitted! 🎉</h2>
+          <h2>Submitted!</h2>
           <p>We've received your details. Our team will reach out within <strong>24 hours</strong>.</p>
           <div className="capture-contact-row">
             <a href="tel:+919999999999" className="capture-contact-btn">
@@ -187,7 +187,7 @@ export default function CaptureForm() {
           </div>
           <h1 className="capture-title">Partner With Us</h1>
           <p className="capture-subtitle">
-            Select who you are and fill in your details — we'll connect shortly 🚀
+            Select who you are and fill in your details — we'll connect shortly
           </p>
         </div>
 
@@ -195,29 +195,32 @@ export default function CaptureForm() {
 
           {/* Type tiles */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 24 }}>
-            {LEAD_TYPES.map(t => (
-              <button
-                key={t.value}
-                type="button"
-                onClick={() => setLeadType(t.value)}
-                style={{
-                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
-                  padding: '12px 6px 10px',
-                  borderRadius: 14,
-                  border: `2.5px solid ${leadType === t.value ? t.color : '#e2e8f0'}`,
-                  background: leadType === t.value ? t.color + '14' : '#fff',
-                  cursor: 'pointer', transition: 'all .18s', textAlign: 'center',
-                  boxShadow: leadType === t.value ? `0 4px 14px ${t.color}33` : 'none',
-                }}
-              >
-                <span style={{ fontSize: '1.6rem', lineHeight: 1 }}>{t.emoji}</span>
-                <span style={{
-                  fontSize: '.72rem', fontWeight: 800, lineHeight: 1.2,
-                  color: leadType === t.value ? t.color : '#334155',
-                }}>{t.label}</span>
-                <span style={{ fontSize: '.6rem', color: '#94a3b8', lineHeight: 1.2 }}>{t.desc}</span>
-              </button>
-            ))}
+            {LEAD_TYPES.map(t => {
+              const Icon = t.icon;
+              return (
+                <button
+                  key={t.value}
+                  type="button"
+                  onClick={() => setLeadType(t.value)}
+                  style={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+                    padding: '14px 6px 10px',
+                    borderRadius: 14,
+                    border: `2.5px solid ${leadType === t.value ? t.color : '#e2e8f0'}`,
+                    background: leadType === t.value ? t.color + '14' : '#fff',
+                    cursor: 'pointer', transition: 'all .18s', textAlign: 'center',
+                    boxShadow: leadType === t.value ? `0 4px 14px ${t.color}33` : 'none',
+                  }}
+                >
+                  <Icon size={22} color={leadType === t.value ? t.color : '#64748b'} strokeWidth={1.8} />
+                  <span style={{
+                    fontSize: '.72rem', fontWeight: 800, lineHeight: 1.2,
+                    color: leadType === t.value ? t.color : '#334155',
+                  }}>{t.label}</span>
+                  <span style={{ fontSize: '.6rem', color: '#94a3b8', lineHeight: 1.2 }}>{t.desc}</span>
+                </button>
+              );
+            })}
           </div>
 
           {/* Section divider */}
