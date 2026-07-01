@@ -137,9 +137,11 @@ export default function MultiAssignSelect({ value = [], onChange, users = [], pl
       {open && (
         <div style={{
           position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0, zIndex: 1000,
-          background: 'var(--surface)', border: '1.5px solid var(--primary)',
-          borderRadius: 'var(--r-sm)', boxShadow: '0 12px 30px rgba(0,0,0,.15)',
+          background: '#ffffff',
+          border: '1.5px solid var(--primary)',
+          borderRadius: 'var(--r-sm)', boxShadow: '0 12px 30px rgba(0,0,0,.18)',
           maxHeight: 300, display: 'flex', flexDirection: 'column',
+          isolation: 'isolate',
         }}>
           {/* Header row */}
           <div style={{
@@ -189,7 +191,7 @@ export default function MultiAssignSelect({ value = [], onChange, users = [], pl
                         background: isSel ? color + '12' : 'transparent',
                         transition: 'background .1s',
                       }}
-                      onMouseEnter={e => { if (!isSel) e.currentTarget.style.background = 'var(--bg)'; }}
+                      onMouseEnter={e => { if (!isSel) e.currentTarget.style.background = '#f9fafb'; }}
                       onMouseLeave={e => { if (!isSel) e.currentTarget.style.background = 'transparent'; }}
                     >
                       {/* Checkbox */}
@@ -231,7 +233,7 @@ export default function MultiAssignSelect({ value = [], onChange, users = [], pl
                         background: isSel ? color + '12' : 'transparent',
                         transition: 'background .1s',
                       }}
-                      onMouseEnter={e => { if (!isSel) e.currentTarget.style.background = 'var(--bg)'; }}
+                      onMouseEnter={e => { if (!isSel) e.currentTarget.style.background = '#f9fafb'; }}
                       onMouseLeave={e => { if (!isSel) e.currentTarget.style.background = 'transparent'; }}
                     >
                       {/* Checkbox */}

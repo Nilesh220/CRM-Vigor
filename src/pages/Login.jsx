@@ -1,13 +1,9 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../contexts/AppContext';
-import { getAllUsers } from '../lib/data';
-import { AlertCircle, Zap, Eye, EyeOff, ArrowLeft } from 'lucide-react';
+import { AlertCircle, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 
-const DEMO_CREDS = [
-  { role: 'Admin (Nilesh)', email: 'nilesh@vigorlaunchpad.com', pw: 'Vigor@2026' },
-  { role: 'Founder (Pravash)', email: 'pravash@vigorlaunchpad.com', pw: 'Vigor@2026' },
-];
+
 
 export default function Login() {
   const { login, showToast } = useApp();
@@ -67,25 +63,11 @@ export default function Login() {
         setForgotSuccess(data.message || 'If an account exists with this email, a password reset link has been sent.');
       }
     } catch (err) {
-      // Fallback for local dev (no serverless functions available)
-      console.warn('[ForgotPassword] API unavailable, using demo fallback:', err.message);
-      const allUsers = getAllUsers();
-      const u = allUsers.find(x => x.email.toLowerCase() === forgotEmail.toLowerCase().trim());
-      if (u) {
-        setForgotSuccess(`Reset instructions sent! (Demo mode — your password is: ${u.password})`);
-      } else {
-        setForgotError('Work email not found in VigorLaunchpad database.');
-      }
+      console.warn('[ForgotPassword] API unavailable:', err.message);
+      setForgotError('Unable to process request. Please contact your admin directly.');
     } finally {
       setForgotLoading(false);
     }
-  }
-
-  function fillCreds(c) {
-    setEmail(c.email);
-    setPassword(c.pw);
-    setError('');
-    setMode('login');
   }
 
   return (
@@ -252,21 +234,6 @@ export default function Login() {
             </>
           )}
 
-          {/* Demo credentials */}
-          <div className="demo-table" style={{marginTop:24}}>
-            <div className="demo-table-head" style={{display:'flex',alignItems:'center',gap:6}}>
-              <Zap size={11} color="var(--text-3)"/>
-              <span>Workspace Accounts — click to auto-fill</span>
-            </div>
-            {DEMO_CREDS.map(c => (
-              <div key={c.email} className="demo-row" onClick={() => fillCreds(c)} style={{cursor:'pointer'}}
-                title="Click to auto-fill">
-                <div className="demo-role">{c.role}</div>
-                <div className="demo-email">{c.email}</div>
-                <div className="demo-pw">{c.pw}</div>
-              </div>
-            ))}
-          </div>
         </div>
       </div>
     </div>

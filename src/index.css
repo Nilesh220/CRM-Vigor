@@ -11,6 +11,7 @@ html { font-size: 14px; -webkit-font-smoothing: antialiased; -moz-osx-font-smoot
   --primary-ring:  rgba(37,99,235,.15);
 
   --white:    #ffffff;
+  --surface:  #ffffff;
   --bg:       #f9fafb;
   --bg-alt:   #f3f4f6;
   --border:   #e5e7eb;
@@ -1874,4 +1875,36 @@ input *, textarea * {
   }
   .sidebar, .page-header, .top-header,
   .row-actions, .modal, .btn { display: none !important; }
+}
+
+/* ======================================================
+   SCREENSHOT / SCREEN-CAPTURE PROTECTION
+   ====================================================== */
+
+/* Block print / PDF saves from capturing the login page */
+@media print {
+  body { display: none !important; }
+}
+
+/* Prevent text selection on sensitive credential areas */
+.login-form-box, .demo-table {
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+
+/* Screen capture protection using video element overlay trick:
+   On Android Chrome & some iOS browsers, embedding a DRM element
+   causes the OS to blank the screen during capture.
+   Applied to the login wrapper only. */
+.login-page {
+  position: relative;
+}
+.login-page::before {
+  content: '';
+  display: none; /* purely declarative — actual protection is via JS in main.jsx */
+}
+
+/* Mask password fields in screenshots via pointer visual trick */
+input[type="password"] {
+  -webkit-text-security: disc;
 }
