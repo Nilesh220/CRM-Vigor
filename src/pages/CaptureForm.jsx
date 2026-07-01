@@ -173,7 +173,18 @@ export default function CaptureForm() {
 
         {/* Header */}
         <div className="capture-header">
-          <div className="capture-logo"><Zap size={22} /><span>VigorLaunchpad</span></div>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 18 }}>
+            <div style={{
+              background: '#ffffff', borderRadius: '10px', padding: '10px 18px',
+              display: 'inline-flex', alignItems: 'center', boxShadow: '0 8px 24px rgba(0,0,0,.2)'
+            }}>
+              <img
+                src="/vigor-logo-new-01.png"
+                alt="VigorLaunchpad"
+                style={{ height: '28px', width: 'auto', display: 'block' }}
+              />
+            </div>
+          </div>
           <h1 className="capture-title">Partner With Us</h1>
           <p className="capture-subtitle">
             Select who you are and fill in your details — we'll connect shortly 🚀
