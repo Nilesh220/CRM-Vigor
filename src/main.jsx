@@ -83,63 +83,6 @@ document.addEventListener('dragstart', e => {
   }
 });
 
-/* ══════════════════════════════════════════════════════════════
-   MOBILE SCREENSHOT / SCREEN-RECORD PROTECTION
-   When the page goes to background (OS screenshot gesture, app-
-   switcher, notification shade) → instantly show a black overlay
-   so the content doesn't leak into the screenshot thumbnail.
-   This matches the behavior of banking apps, Jio Cinema, etc.
-   ══════════════════════════════════════════════════════════════ */
-(function () {
-  // Create a full-screen black shield element
-  const shield = document.createElement('div');
-  shield.id = 'vl-screenshot-shield';
-  Object.assign(shield.style, {
-    position: 'fixed',
-    inset: '0',
-    zIndex: '2147483647', // max z-index
-    background: '#000000',
-    display: 'none',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'column',
-    gap: '12px',
-  });
-  // VigorLaunchpad lock icon inside the shield
-  shield.innerHTML = `
-    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.5" opacity="0.4">
-      <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-      <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-    </svg>
-    <span style="color:rgba(255,255,255,0.3);font-size:12px;font-family:sans-serif;letter-spacing:.05em">VigorLaunchpad — Secured</span>
-  `;
-  document.documentElement.appendChild(shield);
-
-  function showShield() {
-    shield.style.display = 'flex';
-  }
-  function hideShield() {
-    shield.style.display = 'none';
-  }
-
-  // On visibility change (tab switch, screenshot gesture, app switcher)
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') {
-      showShield();
-    } else {
-      // Small delay so the shield is still up during the screenshot capture
-      setTimeout(hideShield, 300);
-    }
-  });
-
-  // iOS Safari pagehide
-  window.addEventListener('pagehide', showShield);
-  window.addEventListener('pageshow', () => setTimeout(hideShield, 300));
-
-  // Android Chrome blur
-  window.addEventListener('blur', showShield);
-  window.addEventListener('focus', () => setTimeout(hideShield, 300));
-})();
 
 /* ══════════════════════════════════════════════════════════════ */
 
