@@ -1,15 +1,9 @@
 import { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import {
-  CheckCircle2, Send, Zap, ArrowRight, Phone, Mail, Building2,
-  MapPin, MessageSquare, Star, Handshake, Users, GraduationCap, User
+  CheckCircle2, Zap, ArrowRight, Phone, Mail, Building2,
+  MapPin, MessageSquare, Star, GraduationCap, User, Handshake, Users
 } from 'lucide-react';
-
-const CAMPAIGN_TYPES = [
-  'Brand Activation', 'Influencer Marketing', 'Digital Campaign',
-  'College Activation', 'Event Marketing', 'BTL Campaign',
-  'Performance Marketing', 'Content Creation', 'Other'
-];
 
 const VENDOR_CATS = [
   'Fabrication', 'Event Management', 'Printing', 'On-Ground Activation',
@@ -23,12 +17,14 @@ const CONTACT_TYPES = [
 ];
 
 const LEAD_TYPES = [
-  { value: 'brand',     label: '🏢 Brand',          desc: 'Looking to activate',         color: '#6366f1' },
-  { value: 'vendor',   label: '🏪 Vendor',          desc: 'Offer services',              color: '#f59e0b' },
-  { value: 'creator',  label: '⭐ Creator',         desc: 'College influencer',          color: '#ec4899' },
-  { value: 'college',  label: '🎓 College',         desc: 'Host activations',            color: '#10b981' },
-  { value: 'poc',      label: '🤝 College POC',     desc: 'Point of contact',            color: '#3b82f6' },
+  { value: 'vendor',   emoji: '🏪', label: 'Vendor',        desc: 'Offer services for events',   color: '#f59e0b' },
+  { value: 'creator',  emoji: '⭐', label: 'Creator',       desc: 'College influencer',           color: '#ec4899' },
+  { value: 'college',  emoji: '🎓', label: 'College',       desc: 'Host activations',             color: '#10b981' },
+  { value: 'poc',      emoji: '🤝', label: 'College POC',   desc: 'Faculty / Committee contact',  color: '#3b82f6' },
 ];
+
+const YES_NO = ['Yes', 'No'];
+const YES_NO_REQ = ['Yes', 'No', 'On Request'];
 
 function genId(p) {
   return p + '_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
@@ -36,14 +32,14 @@ function genId(p) {
 
 function emptyForm() {
   return {
-    name: '', phone: '', email: '', city: '', zone: '', message: '',
-    // Brand
-    brandName: '', campaignType: '',
+    name: '', phone: '', email: '', city: '', message: '',
     // Vendor
-    companyName: '', vendorCategory: '', manPower: '',
-    // Creator / Influencer
+    companyName: '', vendorCategory: '',
+    manPower: '', promoterCost: '', fabrication: '',
+    schoolPermission: '', collegePermission: '',
+    // Creator
     instagramLink: '', youtubeLink: '', followers: '', genre: '', collegeName: '', contentLanguage: '',
-    // College POC
+    // College / POC
     pocCollegeName: '', designation: '', studentCount: '', festName: '',
   };
 }
@@ -52,13 +48,14 @@ export default function CaptureForm() {
   const params = new URLSearchParams(window.location.search);
   const sourceParam = params.get('source') || 'Capture Form';
 
-  const [leadType, setLeadType] = useState('brand');
+  const [leadType, setLeadType] = useState('vendor');
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [form, setForm] = useState(emptyForm());
 
   const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
+  const setVal = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const current = LEAD_TYPES.find(t => t.value === leadType);
 
   async function handleSubmit(e) {
@@ -71,29 +68,7 @@ export default function CaptureForm() {
     setSubmitting(true);
 
     try {
-      if (leadType === 'brand') {
-        // Save to leads table
-        await supabase.from('vlcrm_leads').insert({
-          id: genId('lead'),
-          brand_name: form.brandName || form.name,
-          poc_name: form.name,
-          poc_phone: form.phone,
-          poc_email: form.email || null,
-          city: form.city || null,
-          status: 'new',
-          priority: 'medium',
-          source: sourceParam,
-          category: 'Brand',
-          campaign_type: form.campaignType || null,
-          notes: [
-            form.message ? `Message: ${form.message}` : '',
-            `Submitted via: ${sourceParam}`,
-          ].filter(Boolean).join('\n'),
-          created_at: new Date().toISOString(),
-        });
-
-      } else if (leadType === 'vendor') {
-        // Save to vlcrm_vendors table
+      if (leadType === 'vendor') {
         await supabase.from('vlcrm_vendors').insert({
           id: genId('ven'),
           name: form.name,
@@ -103,23 +78,25 @@ export default function CaptureForm() {
           city: form.city || null,
           category: form.vendorCategory || null,
           man_power: form.manPower || null,
+          promoter_cost: form.promoterCost || null,
+          fabrication: form.fabrication || null,
+          school_permission: form.schoolPermission === 'Yes',
+          college_permission: form.collegePermission === 'Yes',
           status: 'Pending',
           comment: [
-            form.message ? form.message : '',
+            form.message || '',
             `Submitted via: ${sourceParam}`,
           ].filter(Boolean).join('\n'),
           created_at: new Date().toISOString(),
         });
 
       } else if (leadType === 'creator') {
-        // Save to vlcrm_influencers table
         await supabase.from('vlcrm_influencers').insert({
           id: genId('inf'),
           name: form.name,
           instagram_link: form.instagramLink || null,
           youtube_link: form.youtubeLink || null,
           contact_number: form.phone,
-          gender: null,
           followers: parseInt(form.followers) || 0,
           genre: form.genre || 'Campus Ambassador',
           college_name: form.collegeName || null,
@@ -127,15 +104,12 @@ export default function CaptureForm() {
           content_language: form.contentLanguage || null,
           status: 'Pending Outreach',
           type: 'college',
-          notes: [
-            form.message ? form.message : '',
-            `Submitted via: ${sourceParam}`,
-          ].filter(Boolean).join('\n'),
+          notes: [form.message || '', `Submitted via: ${sourceParam}`].filter(Boolean).join('\n'),
           created_at: new Date().toISOString(),
         });
 
-      } else if (leadType === 'college') {
-        // Save to leads table as College category
+      } else {
+        // College & POC → leads table
         await supabase.from('vlcrm_leads').insert({
           id: genId('lead'),
           brand_name: form.pocCollegeName || form.name,
@@ -146,41 +120,17 @@ export default function CaptureForm() {
           status: 'new',
           priority: 'medium',
           source: sourceParam,
-          category: 'College',
-          campaign_type: form.campaignType || null,
+          category: leadType === 'poc' ? 'College POC' : 'College',
           notes: [
-            form.studentCount ? `Student Count: ${form.studentCount}` : '',
+            form.designation ? `Role: ${form.designation}` : '',
+            form.studentCount ? `Students: ${form.studentCount}` : '',
             form.festName ? `Fest: ${form.festName}` : '',
-            form.message ? `Message: ${form.message}` : '',
-            `Submitted via: ${sourceParam}`,
-          ].filter(Boolean).join('\n'),
-          created_at: new Date().toISOString(),
-        });
-
-      } else if (leadType === 'poc') {
-        // Save to vlcrm_colleges as a contact/lead
-        await supabase.from('vlcrm_leads').insert({
-          id: genId('lead'),
-          brand_name: form.pocCollegeName || form.name,
-          poc_name: form.name,
-          poc_phone: form.phone,
-          poc_email: form.email || null,
-          city: form.city || null,
-          status: 'new',
-          priority: 'medium',
-          source: sourceParam,
-          category: 'College POC',
-          notes: [
-            form.designation ? `Designation: ${form.designation}` : '',
-            form.studentCount ? `Student Count: ${form.studentCount}` : '',
-            form.festName ? `Fest: ${form.festName}` : '',
-            form.message ? `Message: ${form.message}` : '',
+            form.message || '',
             `Submitted via: ${sourceParam}`,
           ].filter(Boolean).join('\n'),
           created_at: new Date().toISOString(),
         });
       }
-
       setSubmitted(true);
     } catch (err) {
       console.error('[CaptureForm] submit error', err);
@@ -189,16 +139,16 @@ export default function CaptureForm() {
     setSubmitting(false);
   }
 
-  // ── Success screen ──────────────────────────────────────────
+  // ── Success screen ───────────────────────────────────────────────
   if (submitted) {
     return (
       <div className="capture-page">
         <div className="capture-success">
           <div className="capture-success-icon">
-            <CheckCircle2 size={48} strokeWidth={1.5} />
+            <CheckCircle2 size={52} strokeWidth={1.5} />
           </div>
-          <h2>Thank You! 🎉</h2>
-          <p>Your inquiry has been received. Our team will reach out to you within <strong>24 hours</strong>.</p>
+          <h2>Submitted! 🎉</h2>
+          <p>We've received your details. Our team will reach out within <strong>24 hours</strong>.</p>
           <div className="capture-contact-row">
             <a href="tel:+919999999999" className="capture-contact-btn">
               <Phone size={15} /> Call Us
@@ -216,46 +166,59 @@ export default function CaptureForm() {
     );
   }
 
-  // ── Main Form ───────────────────────────────────────────────
+  // ── Main Form ────────────────────────────────────────────────────
   return (
     <div className="capture-page">
-      <div className="capture-card">
+      <div className="capture-card" style={{ maxWidth: 560 }}>
+
         {/* Header */}
         <div className="capture-header">
-          <div className="capture-logo">
-            <Zap size={22} />
-            <span>VigorLaunchpad</span>
-          </div>
-          <h1 className="capture-title">Let's Work Together</h1>
+          <div className="capture-logo"><Zap size={22} /><span>VigorLaunchpad</span></div>
+          <h1 className="capture-title">Partner With Us</h1>
           <p className="capture-subtitle">
-            Who are you? Pick your category and fill in the details 🚀
+            Select who you are and fill in your details — we'll connect shortly 🚀
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="capture-form">
 
-          {/* Type toggle — 5 options */}
-          <div className="capture-type-grid">
+          {/* Type tiles */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 24 }}>
             {LEAD_TYPES.map(t => (
               <button
                 key={t.value}
                 type="button"
-                className={`capture-type-tile ${leadType === t.value ? 'active' : ''}`}
-                style={{ '--tile-color': t.color }}
                 onClick={() => setLeadType(t.value)}
+                style={{
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+                  padding: '12px 6px 10px',
+                  borderRadius: 14,
+                  border: `2.5px solid ${leadType === t.value ? t.color : '#e2e8f0'}`,
+                  background: leadType === t.value ? t.color + '14' : '#fff',
+                  cursor: 'pointer', transition: 'all .18s', textAlign: 'center',
+                  boxShadow: leadType === t.value ? `0 4px 14px ${t.color}33` : 'none',
+                }}
               >
-                <span className="capture-type-icon">{t.label.split(' ')[0]}</span>
-                <span className="capture-type-name">{t.label.split(' ').slice(1).join(' ')}</span>
-                <span className="capture-type-desc">{t.desc}</span>
+                <span style={{ fontSize: '1.6rem', lineHeight: 1 }}>{t.emoji}</span>
+                <span style={{
+                  fontSize: '.72rem', fontWeight: 800, lineHeight: 1.2,
+                  color: leadType === t.value ? t.color : '#334155',
+                }}>{t.label}</span>
+                <span style={{ fontSize: '.6rem', color: '#94a3b8', lineHeight: 1.2 }}>{t.desc}</span>
               </button>
             ))}
           </div>
 
-          {/* ── Common Fields ─────────────────────────────── */}
-          <div className="capture-section-label" style={{ color: current?.color }}>
-            {current?.label} Details
+          {/* Section divider */}
+          <div style={{
+            fontSize: '.68rem', fontWeight: 800, textTransform: 'uppercase',
+            letterSpacing: '.1em', color: current?.color,
+            borderBottom: `2px solid ${current?.color}`, paddingBottom: 6, marginBottom: 18,
+          }}>
+            {current?.emoji} {current?.label} Details
           </div>
 
+          {/* ── Common fields ──────────────────────────────────── */}
           <div className="capture-field">
             <label>Your Name <span>*</span></label>
             <div className="capture-input-icon">
@@ -289,166 +252,206 @@ export default function CaptureForm() {
             </div>
           </div>
 
-          {/* ── Brand specific ─────────────────────────── */}
-          {leadType === 'brand' && (
-            <>
-              <div className="capture-field">
-                <label>Brand / Company Name</label>
-                <div className="capture-input-icon">
-                  <Building2 size={14} />
-                  <input type="text" placeholder="Your brand name" value={form.brandName} onChange={set('brandName')} />
-                </div>
+          {/* ── VENDOR ─────────────────────────────────────────── */}
+          {leadType === 'vendor' && (<>
+            <div className="capture-field">
+              <label>Company / Business Name</label>
+              <div className="capture-input-icon">
+                <Handshake size={14} />
+                <input type="text" placeholder="ABC Fabricators Pvt Ltd" value={form.companyName} onChange={set('companyName')} />
               </div>
-              <div className="capture-field">
-                <label>What are you looking for?</label>
-                <select value={form.campaignType} onChange={set('campaignType')}>
-                  <option value="">Select a service…</option>
-                  {CAMPAIGN_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                </select>
-              </div>
-            </>
-          )}
+            </div>
 
-          {/* ── Vendor specific ────────────────────────── */}
-          {leadType === 'vendor' && (
-            <>
-              <div className="capture-field">
-                <label>Company / Business Name</label>
-                <div className="capture-input-icon">
-                  <Handshake size={14} />
-                  <input type="text" placeholder="Your company name" value={form.companyName} onChange={set('companyName')} />
-                </div>
-              </div>
-              <div className="capture-row">
-                <div className="capture-field">
-                  <label>Service Category</label>
-                  <select value={form.vendorCategory} onChange={set('vendorCategory')}>
-                    <option value="">Select category…</option>
-                    {VENDOR_CATS.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                </div>
-                <div className="capture-field">
-                  <label>Team Size (approx.)</label>
-                  <input type="number" placeholder="e.g. 20" value={form.manPower} onChange={set('manPower')} />
-                </div>
-              </div>
-            </>
-          )}
+            <div className="capture-field">
+              <label>Service Category</label>
+              <select value={form.vendorCategory} onChange={set('vendorCategory')}>
+                <option value="">Select category…</option>
+                {VENDOR_CATS.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
 
-          {/* ── Creator / Influencer specific ──────────── */}
-          {leadType === 'creator' && (
-            <>
-              <div className="capture-field">
-                <label>College Name</label>
-                <div className="capture-input-icon">
-                  <GraduationCap size={14} />
-                  <input type="text" placeholder="Your college name" value={form.collegeName} onChange={set('collegeName')} />
-                </div>
+            {/* Permission & Fabrication row */}
+            <div style={{ background: '#f8fafc', borderRadius: 12, padding: '14px 16px', marginBottom: 14 }}>
+              <div style={{ fontSize: '.72rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '.07em', marginBottom: 12 }}>
+                Capabilities
               </div>
-              <div className="capture-row">
-                <div className="capture-field">
-                  <label>Instagram Profile Link</label>
-                  <div className="capture-input-icon">
-                    <Star size={14} />
-                    <input type="url" placeholder="instagram.com/yourhandle" value={form.instagramLink} onChange={set('instagramLink')} />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+
+                <div className="capture-field" style={{ marginBottom: 0 }}>
+                  <label>In-house Fabrication?</label>
+                  <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
+                    {['Yes - in house', 'Yes - outsourced', 'No'].map(opt => (
+                      <button key={opt} type="button"
+                        onClick={() => setVal('fabrication', opt)}
+                        style={{
+                          flex: 1, padding: '5px 4px', borderRadius: 8, fontSize: '.67rem', fontWeight: 600,
+                          border: `1.5px solid ${form.fabrication === opt ? '#f59e0b' : '#e2e8f0'}`,
+                          background: form.fabrication === opt ? '#fef3c7' : '#fff',
+                          color: form.fabrication === opt ? '#92400e' : '#64748b',
+                          cursor: 'pointer', transition: 'all .12s',
+                        }}>{opt.replace('Yes - ', '')}</button>
+                    ))}
                   </div>
                 </div>
-                <div className="capture-field">
-                  <label>YouTube Channel Link</label>
-                  <div className="capture-input-icon">
-                    <Star size={14} />
-                    <input type="url" placeholder="youtube.com/c/..." value={form.youtubeLink} onChange={set('youtubeLink')} />
+
+                <div className="capture-field" style={{ marginBottom: 0 }}>
+                  <label>Manpower (Promoters/Hosts)?</label>
+                  <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
+                    {YES_NO_REQ.map(opt => (
+                      <button key={opt} type="button"
+                        onClick={() => setVal('manPower', opt)}
+                        style={{
+                          flex: 1, padding: '5px 4px', borderRadius: 8, fontSize: '.67rem', fontWeight: 600,
+                          border: `1.5px solid ${form.manPower === opt ? '#f59e0b' : '#e2e8f0'}`,
+                          background: form.manPower === opt ? '#fef3c7' : '#fff',
+                          color: form.manPower === opt ? '#92400e' : '#64748b',
+                          cursor: 'pointer', transition: 'all .12s',
+                        }}>{opt}</button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="capture-field" style={{ marginBottom: 0 }}>
+                  <label>School Permission Access?</label>
+                  <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
+                    {YES_NO.map(opt => (
+                      <button key={opt} type="button"
+                        onClick={() => setVal('schoolPermission', opt)}
+                        style={{
+                          flex: 1, padding: '6px 4px', borderRadius: 8, fontSize: '.72rem', fontWeight: 700,
+                          border: `1.5px solid ${form.schoolPermission === opt ? (opt === 'Yes' ? '#10b981' : '#ef4444') : '#e2e8f0'}`,
+                          background: form.schoolPermission === opt ? (opt === 'Yes' ? '#d1fae5' : '#fee2e2') : '#fff',
+                          color: form.schoolPermission === opt ? (opt === 'Yes' ? '#065f46' : '#991b1b') : '#64748b',
+                          cursor: 'pointer', transition: 'all .12s',
+                        }}>{opt}</button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="capture-field" style={{ marginBottom: 0 }}>
+                  <label>College Permission Access?</label>
+                  <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
+                    {YES_NO.map(opt => (
+                      <button key={opt} type="button"
+                        onClick={() => setVal('collegePermission', opt)}
+                        style={{
+                          flex: 1, padding: '6px 4px', borderRadius: 8, fontSize: '.72rem', fontWeight: 700,
+                          border: `1.5px solid ${form.collegePermission === opt ? (opt === 'Yes' ? '#10b981' : '#ef4444') : '#e2e8f0'}`,
+                          background: form.collegePermission === opt ? (opt === 'Yes' ? '#d1fae5' : '#fee2e2') : '#fff',
+                          color: form.collegePermission === opt ? (opt === 'Yes' ? '#065f46' : '#991b1b') : '#64748b',
+                          cursor: 'pointer', transition: 'all .12s',
+                        }}>{opt}</button>
+                    ))}
                   </div>
                 </div>
               </div>
-              <div className="capture-row">
-                <div className="capture-field">
-                  <label>Total Followers</label>
-                  <input type="number" placeholder="e.g. 25000" value={form.followers} onChange={set('followers')} />
+            </div>
+
+            {form.manPower && form.manPower !== 'No' && (
+              <div className="capture-field">
+                <label>Promoter / Host Cost per Day (₹)</label>
+                <div className="capture-input-icon">
+                  <span style={{ fontSize: '.85rem', fontWeight: 700, color: '#64748b' }}>₹</span>
+                  <input type="number" placeholder="e.g. 1500" value={form.promoterCost} onChange={set('promoterCost')} />
                 </div>
-                <div className="capture-field">
-                  <label>Content Niche / Genre</label>
-                  <input type="text" placeholder="e.g. Lifestyle, Comedy, Edu" value={form.genre} onChange={set('genre')} />
-                </div>
+              </div>
+            )}
+          </>)}
+
+          {/* ── CREATOR ────────────────────────────────────────── */}
+          {leadType === 'creator' && (<>
+            <div className="capture-field">
+              <label>College Name</label>
+              <div className="capture-input-icon">
+                <GraduationCap size={14} />
+                <input type="text" placeholder="Your college name" value={form.collegeName} onChange={set('collegeName')} />
+              </div>
+            </div>
+            <div className="capture-row">
+              <div className="capture-field">
+                <label>Instagram Profile Link</label>
+                <input type="url" placeholder="instagram.com/yourhandle" value={form.instagramLink} onChange={set('instagramLink')} />
+              </div>
+              <div className="capture-field">
+                <label>YouTube Channel Link</label>
+                <input type="url" placeholder="youtube.com/c/..." value={form.youtubeLink} onChange={set('youtubeLink')} />
+              </div>
+            </div>
+            <div className="capture-row">
+              <div className="capture-field">
+                <label>Total Followers (Instagram)</label>
+                <input type="number" placeholder="e.g. 25000" value={form.followers} onChange={set('followers')} />
               </div>
               <div className="capture-field">
                 <label>Content Language</label>
-                <input type="text" placeholder="e.g. Hindi, English, Marathi" value={form.contentLanguage} onChange={set('contentLanguage')} />
+                <input type="text" placeholder="Hindi, English…" value={form.contentLanguage} onChange={set('contentLanguage')} />
               </div>
-            </>
-          )}
+            </div>
+            <div className="capture-field">
+              <label>Content Niche / Genre</label>
+              <input type="text" placeholder="Lifestyle, Comedy, Education…" value={form.genre} onChange={set('genre')} />
+            </div>
+          </>)}
 
-          {/* ── College specific ───────────────────────── */}
-          {leadType === 'college' && (
-            <>
-              <div className="capture-field">
-                <label>College / Institution Name</label>
-                <div className="capture-input-icon">
-                  <Building2 size={14} />
-                  <input type="text" placeholder="Your college name" value={form.pocCollegeName} onChange={set('pocCollegeName')} />
-                </div>
+          {/* ── COLLEGE ────────────────────────────────────────── */}
+          {leadType === 'college' && (<>
+            <div className="capture-field">
+              <label>College / Institution Name</label>
+              <div className="capture-input-icon">
+                <Building2 size={14} />
+                <input type="text" placeholder="Your college name" value={form.pocCollegeName} onChange={set('pocCollegeName')} />
               </div>
-              <div className="capture-row">
-                <div className="capture-field">
-                  <label>Approx. Student Count</label>
-                  <input type="number" placeholder="e.g. 5000" value={form.studentCount} onChange={set('studentCount')} />
-                </div>
-                <div className="capture-field">
-                  <label>Annual Fest Name</label>
-                  <input type="text" placeholder="e.g. Techfest 2026" value={form.festName} onChange={set('festName')} />
-                </div>
-              </div>
-              <div className="capture-field">
-                <label>What are you looking for?</label>
-                <select value={form.campaignType} onChange={set('campaignType')}>
-                  <option value="">Select a service…</option>
-                  {CAMPAIGN_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                </select>
-              </div>
-            </>
-          )}
-
-          {/* ── College POC specific ───────────────────── */}
-          {leadType === 'poc' && (
-            <>
-              <div className="capture-field">
-                <label>College Name</label>
-                <div className="capture-input-icon">
-                  <Building2 size={14} />
-                  <input type="text" placeholder="Your college name" value={form.pocCollegeName} onChange={set('pocCollegeName')} />
-                </div>
-              </div>
-              <div className="capture-row">
-                <div className="capture-field">
-                  <label>Your Designation / Role</label>
-                  <select value={form.designation} onChange={set('designation')}>
-                    <option value="">Select role…</option>
-                    {CONTACT_TYPES.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                </div>
-                <div className="capture-field">
-                  <label>Annual Fest Name</label>
-                  <input type="text" placeholder="e.g. Techfest 2026" value={form.festName} onChange={set('festName')} />
-                </div>
-              </div>
+            </div>
+            <div className="capture-row">
               <div className="capture-field">
                 <label>Approx. Student Count</label>
                 <input type="number" placeholder="e.g. 5000" value={form.studentCount} onChange={set('studentCount')} />
               </div>
-            </>
-          )}
+              <div className="capture-field">
+                <label>Annual Fest Name</label>
+                <input type="text" placeholder="e.g. Techfest 2026" value={form.festName} onChange={set('festName')} />
+              </div>
+            </div>
+          </>)}
 
-          {/* ── Message (all types) ─────────────────────── */}
+          {/* ── COLLEGE POC ─────────────────────────────────────── */}
+          {leadType === 'poc' && (<>
+            <div className="capture-field">
+              <label>College Name</label>
+              <div className="capture-input-icon">
+                <Building2 size={14} />
+                <input type="text" placeholder="Your college name" value={form.pocCollegeName} onChange={set('pocCollegeName')} />
+              </div>
+            </div>
+            <div className="capture-row">
+              <div className="capture-field">
+                <label>Your Role / Designation</label>
+                <select value={form.designation} onChange={set('designation')}>
+                  <option value="">Select role…</option>
+                  {CONTACT_TYPES.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              <div className="capture-field">
+                <label>Annual Fest Name</label>
+                <input type="text" placeholder="e.g. Techfest 2026" value={form.festName} onChange={set('festName')} />
+              </div>
+            </div>
+            <div className="capture-field">
+              <label>Approx. Student Count</label>
+              <input type="number" placeholder="e.g. 5000" value={form.studentCount} onChange={set('studentCount')} />
+            </div>
+          </>)}
+
+          {/* ── Message (all types) ─────────────────────────────── */}
           <div className="capture-field">
-            <label>Tell us more</label>
+            <label>Anything else to share?</label>
             <div className="capture-input-icon capture-textarea-wrap">
               <MessageSquare size={14} style={{ marginTop: 3 }} />
               <textarea
                 placeholder={
-                  leadType === 'vendor' ? 'Services you offer, regions you operate in…' :
-                  leadType === 'creator' ? 'Past collaborations, your best performing content…' :
-                  leadType === 'poc' ? 'Opportunities you can offer — sponsorships, stalls, etc…' :
-                  'Budget, timeline, specific goals…'
+                  leadType === 'vendor' ? 'Regions you operate in, past event experience…' :
+                  leadType === 'creator' ? 'Past brand collaborations, best performing content…' :
+                  'Any specific requirements, timeline, opportunities you can offer…'
                 }
                 value={form.message}
                 onChange={set('message')}
@@ -459,90 +462,21 @@ export default function CaptureForm() {
 
           {error && <div className="capture-error">{error}</div>}
 
-          <button type="submit" className="capture-submit" style={{ background: current?.color }} disabled={submitting}>
-            {submitting ? (
-              <><div className="capture-spinner" /> Submitting…</>
-            ) : (
-              <>Submit {current?.label.split(' ').slice(1).join(' ') || 'Inquiry'} <ArrowRight size={16} /></>
-            )}
+          <button
+            type="submit"
+            className="capture-submit"
+            style={{ background: `linear-gradient(135deg, ${current?.color}, ${current?.color}cc)` }}
+            disabled={submitting}
+          >
+            {submitting
+              ? <><div className="capture-spinner" /> Submitting…</>
+              : <>{current?.emoji} Submit as {current?.label} <ArrowRight size={16} /></>
+            }
           </button>
 
-          <p className="capture-footer">
-            By submitting, you agree to be contacted by VigorLaunchpad team.
-          </p>
+          <p className="capture-footer">By submitting, you agree to be contacted by VigorLaunchpad team.</p>
         </form>
       </div>
-
-      {/* Inline styles for the new type grid */}
-      <style>{`
-        .capture-type-grid {
-          display: grid;
-          grid-template-columns: repeat(5, 1fr);
-          gap: 8px;
-          margin-bottom: 20px;
-        }
-        @media (max-width: 600px) {
-          .capture-type-grid {
-            grid-template-columns: repeat(3, 1fr);
-          }
-        }
-        @media (max-width: 380px) {
-          .capture-type-grid {
-            grid-template-columns: repeat(2, 1fr);
-          }
-        }
-        .capture-type-tile {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 3px;
-          padding: 10px 6px;
-          border-radius: 12px;
-          border: 2px solid #e5e7eb;
-          background: #fff;
-          cursor: pointer;
-          transition: all .18s;
-          text-align: center;
-        }
-        .capture-type-tile:hover {
-          border-color: var(--tile-color, #6366f1);
-          transform: translateY(-2px);
-          box-shadow: 0 4px 12px rgba(0,0,0,.08);
-        }
-        .capture-type-tile.active {
-          border-color: var(--tile-color, #6366f1);
-          background: color-mix(in srgb, var(--tile-color, #6366f1) 10%, white);
-          box-shadow: 0 2px 12px color-mix(in srgb, var(--tile-color, #6366f1) 25%, transparent);
-        }
-        .capture-type-icon {
-          font-size: 1.4rem;
-          line-height: 1;
-        }
-        .capture-type-name {
-          font-size: .73rem;
-          font-weight: 700;
-          color: #1e293b;
-          line-height: 1.2;
-        }
-        .capture-type-tile.active .capture-type-name {
-          color: var(--tile-color, #6366f1);
-        }
-        .capture-type-desc {
-          font-size: .62rem;
-          color: #94a3b8;
-          line-height: 1.2;
-        }
-        .capture-section-label {
-          font-size: .7rem;
-          font-weight: 800;
-          text-transform: uppercase;
-          letter-spacing: .08em;
-          margin-bottom: 12px;
-          padding-bottom: 6px;
-          border-bottom: 2px solid currentColor;
-          opacity: .8;
-        }
-      `}</style>
     </div>
   );
 }
