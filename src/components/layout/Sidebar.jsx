@@ -18,7 +18,7 @@ const ALL_NAV = [
   { key:'vigorspace',  label:'Zone Overview', icon:Globe,           to:'/vigorspace', section:'vigorspace' },
   { key:'colleges',    label:'Colleges',      icon:School,          to:'/colleges',   section:'vigorspace', indent:true },
   { key:'vendors',     label:'Vendors',       icon:Handshake,       to:'/vendors',    section:'vigorspace', indent:true },
-  { key:'college_influencers', label:'Ambassadors', icon:Star,      to:'/vigorspace/college-influencers', section:'vigorspace', indent:true },
+  { key:'college_influencers', label:'College Creators', icon:Star,  to:'/vigorspace/college-influencers', section:'vigorspace', indent:true },
   { key:'vigorspace', label:'Map View', icon:MapPin, to:'/map-view', section:'vigorspace', indent:true },
   { section:'Team' },
   { key:'influencers', label:'Influencers',   icon:Star,            to:'/influencers',section:'influencers' },
