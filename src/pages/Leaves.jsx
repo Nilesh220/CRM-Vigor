@@ -2,24 +2,27 @@ import { useState, useEffect } from 'react';
 import { useSession, useToast } from '../contexts/AppContext';
 import Modal from '../components/ui/Modal';
 import {
-  LeaveDB, AnnouncementDB, getAllUsers, genId, logActivity, formatDate
+  LeaveDB, AnnouncementDB, CompOffDB, getAllUsers, genId, logActivity, formatDate
 } from '../lib/data';
 import {
-  CalendarDays, Plus, Trash2, Check, X, AlertCircle, FileText, Megaphone, CheckSquare
+  CalendarDays, Plus, Trash2, Check, X, AlertCircle, FileText, Megaphone,
+  CheckSquare, Award, Clock, ArrowRight, Save, Calendar
 } from 'lucide-react';
 
 const LEAVE_TYPES = {
   casual: 'Casual Leave',
   sick: 'Sick Leave',
   paid: 'Earned Leave (Paid)',
-  unpaid: 'Unpaid Leave'
+  unpaid: 'Unpaid Leave',
+  comp_off: 'Comp Off Leave'
 };
 
 const LEAVE_COLORS = {
   casual: 'badge-blue',
   sick: 'badge-orange',
   paid: 'badge-green',
-  unpaid: 'badge-gray'
+  unpaid: 'badge-gray',
+  comp_off: 'badge-purple'
 };
 
 const LEAVE_STATUS_COLORS = {
@@ -32,9 +35,10 @@ export default function Leaves() {
   const session = useSession();
   const toast = useToast();
 
-  const [activeSubTab, setActiveSubTab] = useState('leaves'); // 'leaves' or 'notices'
+  const [activeSubTab, setActiveSubTab] = useState('leaves'); // 'leaves' | 'notices' | 'compoffs'
   const [leaves, setLeaves] = useState([]);
   const [notices, setNotices] = useState([]);
+  const [compOffs, setCompOffs] = useState([]);
   const [users, setUsers] = useState([]);
 
   // Leave Form State
@@ -49,21 +53,58 @@ export default function Leaves() {
     title: '', content: ''
   });
 
+  // Comp Off Credit Form State
+  const [compOffModal, setCompOffModal] = useState(false);
+  const [compOffForm, setCompOffForm] = useState({
+    userId: '',
+    earnedDate: '',
+    expiryDate: '',
+    notes: ''
+  });
+
+  // Comp Off Expiry Extension State
+  const [extendModal, setExtendModal] = useState(false);
+  const [extendingItem, setExtendingItem] = useState(null);
+  const [extendForm, setExtendForm] = useState({
+    newExpiryDate: '',
+    reason: ''
+  });
+
   const isHR = ['admin', 'founder', 'hr', 'operations'].includes(session?.role);
 
   useEffect(() => {
     LeaveDB.syncFromDB().then(rows => setLeaves(rows));
     AnnouncementDB.syncFromDB().then(rows => setNotices(rows));
+    CompOffDB.syncFromDB().then(rows => setCompOffs(rows));
     setUsers(getAllUsers());
   }, []);
 
   const refreshLeaves = () => setLeaves(LeaveDB.all());
   const refreshNotices = () => setNotices(AnnouncementDB.all());
+  const refreshCompOffs = () => setCompOffs(CompOffDB.all());
 
-  // My leaves vs Team leaves
+  // My data vs Team data
   const myLeaves = leaves.filter(l => l.userId === session?.id);
   const pendingLeaves = leaves.filter(l => l.status === 'pending');
   const pastLeaves = leaves.filter(l => l.status !== 'pending');
+
+  // Helper: auto-calculate 30 days expiry date
+  function calculateExpiryDate(dateStr) {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    d.setDate(d.getDate() + 30);
+    return d.toISOString().split('T')[0];
+  }
+
+  // Get active comp off balance for logged-in user
+  const myCompOffs = compOffs.map(co => {
+    const isExpired = co.status === 'active' && new Date(co.expiryDate) < new Date();
+    return { ...co, currentStatus: isExpired ? 'expired' : co.status };
+  });
+
+  const myActiveCompOffBalance = myCompOffs.filter(
+    co => co.userId === session?.id && co.currentStatus === 'active'
+  ).length;
 
   async function requestLeave() {
     if (!leaveForm.startDate || !leaveForm.endDate) {
@@ -73,6 +114,17 @@ export default function Leaves() {
     if (new Date(leaveForm.startDate) > new Date(leaveForm.endDate)) {
       toast('Start date cannot be after end date', 'warning');
       return;
+    }
+
+    // Check if comp off leave is requested but balance is 0
+    if (leaveForm.type === 'comp_off') {
+      const activeBalance = compOffs.filter(
+        co => co.userId === session?.id && co.status === 'active' && new Date(co.expiryDate) >= new Date()
+      ).length;
+      if (activeBalance <= 0) {
+        toast('No active Comp Off balance available to request this leave.', 'warning');
+        return;
+      }
     }
 
     const payload = {
@@ -104,11 +156,30 @@ export default function Leaves() {
       approvedByName: session?.name
     });
 
+    // If it's a comp_off leave request and got approved, use the oldest active comp off credit
+    if (request.type === 'comp_off' && action === 'approved') {
+      const activeCredits = compOffs.filter(
+        co => co.userId === request.userId && co.status === 'active' && new Date(co.expiryDate) >= new Date()
+      );
+      // Sort oldest expiry date first
+      activeCredits.sort((a, b) => new Date(a.expiryDate) - new Date(b.expiryDate));
+
+      if (activeCredits.length > 0) {
+        const oldestCredit = activeCredits[0];
+        await CompOffDB.update(oldestCredit.id, {
+          status: 'used',
+          leaveId: id
+        });
+        refreshCompOffs();
+      }
+    }
+
     logActivity(action === 'approved' ? 'Approved' : 'Rejected', 'Leave Request', `${request.userName}'s Leave`);
     toast(`Leave request ${action}`, 'info');
     refreshLeaves();
   }
 
+  // Announcement triggers
   async function addNotice() {
     if (!noticeForm.title.trim() || !noticeForm.content.trim()) {
       toast('Title and Content are required', 'warning');
@@ -140,40 +211,120 @@ export default function Leaves() {
     refreshNotices();
   }
 
+  // Crediting Comp Off
+  async function handleCreditCompOff() {
+    if (!compOffForm.userId || !compOffForm.earnedDate || !compOffForm.expiryDate) {
+      toast('Please fill all required fields.', 'warning');
+      return;
+    }
+
+    const selectedUser = users.find(u => u.id === compOffForm.userId);
+    if (!selectedUser) return;
+
+    const payload = {
+      id: genId('co'),
+      userId: compOffForm.userId,
+      userName: selectedUser.name,
+      earnedDate: compOffForm.earnedDate,
+      expiryDate: compOffForm.expiryDate,
+      status: 'active',
+      creditedBy: session?.id,
+      creditedByName: session?.name,
+      notes: compOffForm.notes || 'Credited for weekend activation work.'
+    };
+
+    await CompOffDB.add(payload);
+    logActivity('Credited Comp Off', 'HR Section', selectedUser.name, `Expiry: ${formatDate(payload.expiryDate)}`);
+    toast(`Comp Off credited to ${selectedUser.name}!`, 'success');
+    setCompOffModal(false);
+    setCompOffForm({ userId: '', earnedDate: '', expiryDate: '', notes: '' });
+    refreshCompOffs();
+  }
+
+  // Revoking Comp Off
+  async function handleRevokeCompOff(id, name) {
+    if (!confirm(`Are you sure you want to revoke/delete this comp off for ${name}?`)) return;
+    await CompOffDB.remove(id);
+    logActivity('Revoked Comp Off', 'HR Section', name);
+    toast('Comp Off credit revoked.', 'info');
+    refreshCompOffs();
+  }
+
+  // Extend Expiry Date
+  function openExtendModal(item) {
+    setExtendingItem(item);
+    setExtendForm({
+      newExpiryDate: item.expiryDate,
+      reason: ''
+    });
+    setExtendModal(true);
+  }
+
+  async function handleExtendExpiry() {
+    if (!extendForm.newExpiryDate) {
+      toast('Please select a new expiry date.', 'warning');
+      return;
+    }
+    if (new Date(extendForm.newExpiryDate) <= new Date(extendingItem.expiryDate)) {
+      toast('New expiry date must be after the original expiry date.', 'warning');
+      return;
+    }
+
+    await CompOffDB.update(extendingItem.id, {
+      expiryDate: extendForm.newExpiryDate,
+      notes: `${extendingItem.notes || ''} (Expiry extended to ${formatDate(extendForm.newExpiryDate)}: ${extendForm.reason || 'Admin extension'})`
+    });
+
+    logActivity('Extended Comp Off Expiry', 'HR Section', extendingItem.userName, `New Expiry: ${formatDate(extendForm.newExpiryDate)}`);
+    toast('Comp Off expiration date extended successfully!', 'success');
+    setExtendModal(false);
+    refreshCompOffs();
+  }
+
   return (
     <div className="page-body">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h1 style={{ fontSize: '1.4rem', fontWeight: 800 }}>HR Leave & Notice Center</h1>
-          <p className="text-sm text-muted">Submit leaves, view team planner, and post announcements.</p>
+          <h1 style={{ fontSize: '1.4rem', fontWeight: 800 }}>HR Leave & Comp Off Center</h1>
+          <p className="text-sm text-muted">Submit leaves, manage compensatory off credits, and post announcements.</p>
         </div>
         <div className="flex gap-2">
-          {activeSubTab === 'leaves' ? (
-            <button className="btn btn-primary" onClick={() => setLeaveModal(true)}>
+          {activeSubTab === 'leaves' && (
+            <button className="btn btn-primary" onClick={() => {
+              setLeaveForm({ startDate: '', endDate: '', type: 'casual', reason: '' });
+              setLeaveModal(true);
+            }}>
               <Plus size={14} /> Request Leave
             </button>
-          ) : (
-            isHR && (
-              <button className="btn btn-ai" onClick={() => setNoticeModal(true)}>
-                <Megaphone size={14} style={{ marginRight: 6 }} /> New Notice
-              </button>
-            )
+          )}
+          {activeSubTab === 'compoffs' && isHR && (
+            <button className="btn btn-primary" onClick={() => setCompOffModal(true)}>
+              <Plus size={14} style={{ marginRight: 6 }} /> Credit Comp Off
+            </button>
+          )}
+          {activeSubTab === 'notices' && isHR && (
+            <button className="btn btn-ai" onClick={() => setNoticeModal(true)}>
+              <Megaphone size={14} style={{ marginRight: 6 }} /> New Notice
+            </button>
           )}
         </div>
       </div>
 
-      {/* Sub Tabs */}
+      {/* Navigation Sub Tabs */}
       <div className="tabs" style={{ marginBottom: 18 }}>
         <button className={`tab-btn ${activeSubTab === 'leaves' ? 'active' : ''}`} onClick={() => setActiveSubTab('leaves')}>
           <CalendarDays size={13} style={{ marginRight: 6 }} /> Leave Planner
+        </button>
+        <button className={`tab-btn ${activeSubTab === 'compoffs' ? 'active' : ''}`} onClick={() => setActiveSubTab('compoffs')}>
+          <Award size={13} style={{ marginRight: 6 }} /> Comp Off Balance
         </button>
         <button className={`tab-btn ${activeSubTab === 'notices' ? 'active' : ''}`} onClick={() => setActiveSubTab('notices')}>
           <Megaphone size={13} style={{ marginRight: 6 }} /> Notice Board
         </button>
       </div>
 
-      {/* Leave Planner Tab */}
+      {/* ── TAB 1: LEAVE PLANNER ────────────────────────────────────────── */}
       {activeSubTab === 'leaves' && (
         <div className="grid-1-3">
           {/* My Leaves Card */}
@@ -193,7 +344,7 @@ export default function Leaves() {
                   {myLeaves.map(l => (
                     <div key={l.id} style={{ padding: 12, border: '1px solid var(--border)', borderRadius: 'var(--r-sm)', background: 'var(--bg)' }}>
                       <div className="flex justify-between items-center" style={{ marginBottom: 6 }}>
-                        <span className={`badge ${LEAVE_COLORS[l.type]}`}>{LEAVE_TYPES[l.type]}</span>
+                        <span className={`badge ${LEAVE_COLORS[l.type] || 'badge-gray'}`}>{LEAVE_TYPES[l.type]}</span>
                         <span className={`badge ${LEAVE_STATUS_COLORS[l.status]}`}>{l.status.toUpperCase()}</span>
                       </div>
                       <div style={{ fontSize: '.82rem', fontWeight: 700 }}>
@@ -234,7 +385,7 @@ export default function Leaves() {
                           <div>
                             <div style={{ fontSize: '.82rem', fontWeight: 700 }}>{l.userName}</div>
                             <div style={{ fontSize: '.76rem', color: 'var(--text-2)', marginTop: 2 }}>
-                              <span className={`badge ${LEAVE_COLORS[l.type]}`} style={{ marginRight: 6 }}>{LEAVE_TYPES[l.type]}</span>
+                              <span className={`badge ${LEAVE_COLORS[l.type] || 'badge-gray'}`} style={{ marginRight: 6 }}>{LEAVE_TYPES[l.type]}</span>
                               {formatDate(l.startDate)} to {formatDate(l.endDate)}
                             </div>
                             {l.reason && <div style={{ fontSize: '.74rem', fontStyle: 'italic', color: 'var(--text-3)', marginTop: 4 }}>Reason: "{l.reason}"</div>}
@@ -280,7 +431,7 @@ export default function Leaves() {
                         pastLeaves.map(l => (
                           <tr key={l.id}>
                             <td style={{ fontWeight: 700 }}>{l.userName}</td>
-                            <td><span className={`badge ${LEAVE_COLORS[l.type]}`}>{LEAVE_TYPES[l.type]}</span></td>
+                            <td><span className={`badge ${LEAVE_COLORS[l.type] || 'badge-gray'}`}>{LEAVE_TYPES[l.type]}</span></td>
                             <td style={{ fontSize: '.8rem' }}>{formatDate(l.startDate)} to {formatDate(l.endDate)}</td>
                             <td style={{ fontSize: '.8rem', color: 'var(--text-2)' }}>{l.reason || '—'}</td>
                             <td><span className={`badge ${LEAVE_STATUS_COLORS[l.status]}`}>{l.status.toUpperCase()}</span></td>
@@ -297,7 +448,144 @@ export default function Leaves() {
         </div>
       )}
 
-      {/* Notice Board Tab */}
+      {/* ── TAB 2: COMP OFF BALANCE ────────────────────────────────────── */}
+      {activeSubTab === 'compoffs' && (
+        <div className="grid-1-3">
+          {/* My Balance Card */}
+          <div className="card" style={{ padding: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+              <Award size={18} color="var(--purple)" />
+              <div style={{ fontSize: '.84rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.05em', color: 'var(--text-2)' }}>
+                My Comp Off Balance
+              </div>
+            </div>
+
+            <div style={{ background: 'var(--bg)', borderRadius: 'var(--r-sm)', padding: '20px 16px', border: '1px solid var(--border)', textAlign: 'center', marginBottom: 20 }}>
+              <div style={{ fontSize: '.74rem', color: 'var(--text-3)', fontWeight: 600 }}>AVAILABLE DAYS</div>
+              <div style={{ fontSize: '2.4rem', fontWeight: 900, color: 'var(--purple)', margin: '4px 0' }}>
+                {myActiveCompOffBalance}
+              </div>
+              <div style={{ fontSize: '.74rem', color: 'var(--text-3)' }}>
+                Valid for 30 days from credit date.
+              </div>
+            </div>
+
+            {myActiveCompOffBalance > 0 ? (
+              <button className="btn btn-primary w-full" onClick={() => {
+                setLeaveForm({ startDate: '', endDate: '', type: 'comp_off', reason: 'Using active Comp Off credit.' });
+                setLeaveModal(true);
+              }}>
+                Apply for Comp Off Leave
+              </button>
+            ) : (
+              <div style={{ textAlign: 'center', fontSize: '.74rem', color: 'var(--text-3)', fontStyle: 'italic', padding: 8 }}>
+                No active comp-offs to apply.
+              </div>
+            )}
+          </div>
+
+          {/* Detailed Comp Off Lists */}
+          <div className="card" style={{ gridColumn: 'span 3' }}>
+            <div className="card-header">
+              <div className="card-title">
+                {isHR ? 'Comp Off Registry & Team Balance' : 'My Comp Off History'}
+              </div>
+              <div className="card-subtitle">
+                {isHR ? 'Track and award weekend comp offs, manage extensions' : 'Logs of your weekend credits, expirations, and status'}
+              </div>
+            </div>
+
+            <div className="table-wrap" style={{ border: 'none', borderRadius: 0 }}>
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    {isHR && <th>Employee</th>}
+                    <th>Earned Date</th>
+                    <th>Expiry Date</th>
+                    <th>Remaining Days</th>
+                    <th>Status</th>
+                    <th>Notes</th>
+                    {isHR && <th style={{ width: 140, textAlign: 'center' }}>Actions</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {(isHR ? compOffs : compOffs.filter(co => co.userId === session?.id)).length === 0 ? (
+                    <tr>
+                      <td colSpan={isHR ? 7 : 5} style={{ textAlign: 'center', padding: 36, color: 'var(--text-3)' }}>
+                        <Award size={36} color="var(--border-2)" style={{ margin: '0 auto 8px', opacity: 0.6 }} />
+                        <div>No compensatory off credits found.</div>
+                      </td>
+                    </tr>
+                  ) : (
+                    (isHR ? compOffs : compOffs.filter(co => co.userId === session?.id)).map(co => {
+                      const exp = new Date(co.expiryDate);
+                      const isExpired = co.status === 'active' && exp < new Date();
+                      const currentStatus = isExpired ? 'expired' : co.status;
+
+                      // Calculate remaining days
+                      let remDaysText = '—';
+                      let isUrgent = false;
+                      if (currentStatus === 'active') {
+                        const diffTime = exp - new Date();
+                        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                        remDaysText = diffDays > 0 ? `${diffDays} days` : '0 days';
+                        if (diffDays <= 7) isUrgent = true;
+                      }
+
+                      return (
+                        <tr key={co.id}>
+                          {isHR && <td style={{ fontWeight: 700 }}>{co.userName}</td>}
+                          <td>{formatDate(co.earnedDate)}</td>
+                          <td>{formatDate(co.expiryDate)}</td>
+                          <td style={{ fontWeight: 700, color: isUrgent ? 'var(--danger)' : 'inherit' }}>
+                            {remDaysText}
+                            {isUrgent && <span style={{ fontSize: '.68rem', display: 'block', color: 'var(--danger)', fontWeight: 600 }}>Expires Soon!</span>}
+                          </td>
+                          <td>
+                            <span className={`badge ${
+                              currentStatus === 'active' ? 'badge-green' : currentStatus === 'used' ? 'badge-blue' : 'badge-red'
+                            }`}>
+                              {currentStatus.toUpperCase()}
+                            </span>
+                          </td>
+                          <td style={{ fontSize: '.78rem', color: 'var(--text-2)' }}>{co.notes}</td>
+                          {isHR && (
+                            <td>
+                              <div className="row-actions" style={{ justifyContent: 'center', gap: 6 }}>
+                                {currentStatus === 'active' && (
+                                  <>
+                                    <button
+                                      className="btn btn-secondary btn-xs"
+                                      onClick={() => openExtendModal(co)}
+                                      title="Extend Expiry Date"
+                                    >
+                                      Extend
+                                    </button>
+                                    <button
+                                      className="btn btn-ghost btn-xs"
+                                      style={{ color: 'var(--danger)' }}
+                                      onClick={() => handleRevokeCompOff(co.id, co.userName)}
+                                      title="Revoke Comp Off"
+                                    >
+                                      Revoke
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── TAB 3: NOTICE BOARD ────────────────────────────────────────── */}
       {activeSubTab === 'notices' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           {notices.length === 0 ? (
@@ -372,6 +660,91 @@ export default function Leaves() {
         <div className="form-group">
           <label className="form-label">Notice Content <span className="req">*</span></label>
           <textarea className="textarea" style={{ height: 160 }} placeholder="Write notice details company-wide announcement..." value={noticeForm.content} onChange={e => setNoticeForm({ ...noticeForm, content: e.target.value })} />
+        </div>
+      </Modal>
+
+      {/* Credit Comp Off Modal */}
+      <Modal open={compOffModal} onClose={() => setCompOffModal(false)} title="Credit Comp Off to Employee"
+        footer={<><button className="btn btn-secondary" onClick={() => setCompOffModal(false)}>Cancel</button><button className="btn btn-primary" onClick={handleCreditCompOff}><Award size={14} style={{ marginRight: 6 }} /> Credit Comp Off</button></>}>
+        <div className="form-group">
+          <label className="form-label">Select Employee <span className="req">*</span></label>
+          <select
+            className="select"
+            value={compOffForm.userId}
+            onChange={e => setCompOffForm({ ...compOffForm, userId: e.target.value })}
+          >
+            <option value="">Select Employee...</option>
+            {users.map(u => <option key={u.id} value={u.id}>{u.name} ({u.role})</option>)}
+          </select>
+        </div>
+
+        <div className="form-row">
+          <div className="form-group">
+            <label className="form-label">Weekend Date Worked <span className="req">*</span></label>
+            <input
+              type="date"
+              className="input"
+              value={compOffForm.earnedDate}
+              onChange={e => {
+                const ed = e.target.value;
+                setCompOffForm({
+                  ...compOffForm,
+                  earnedDate: ed,
+                  expiryDate: calculateExpiryDate(ed) // Auto calculate default 30 days
+                });
+              }}
+            />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Expiration Date <span className="req">*</span></label>
+            <input
+              type="date"
+              className="input"
+              value={compOffForm.expiryDate}
+              onChange={e => setCompOffForm({ ...compOffForm, expiryDate: e.target.value })}
+            />
+            <div className="form-hint">Defaults to 30 days after the date worked.</div>
+          </div>
+        </div>
+
+        <div className="form-group">
+          <label className="form-label">Reason / Weekend Project Detail</label>
+          <textarea
+            className="textarea"
+            style={{ height: 80 }}
+            placeholder="e.g. Supported Saturday activation at Symbiosis Pune for D2C campaign"
+            value={compOffForm.notes}
+            onChange={e => setCompOffForm({ ...compOffForm, notes: e.target.value })}
+          />
+        </div>
+      </Modal>
+
+      {/* Extend Comp Off Expiry Modal */}
+      <Modal open={extendModal} onClose={() => setExtendModal(false)} title="Extend Expiry Date"
+        footer={<><button className="btn btn-secondary" onClick={() => setExtendModal(false)}>Cancel</button><button className="btn btn-primary" onClick={handleExtendExpiry}><Save size={14} style={{ marginRight: 6 }} /> Save Extension</button></>}>
+        <div style={{ fontSize: '.8rem', color: 'var(--text-2)', marginBottom: 16 }}>
+          Original Expiry Date: <strong>{extendingItem ? formatDate(extendingItem.expiryDate) : ''}</strong>
+        </div>
+
+        <div className="form-group">
+          <label className="form-label">New Expiration Date <span className="req">*</span></label>
+          <input
+            type="date"
+            className="input"
+            value={extendForm.newExpiryDate}
+            onChange={e => setExtendForm({ ...extendForm, newExpiryDate: e.target.value })}
+          />
+        </div>
+
+        <div className="form-group">
+          <label className="form-label">Extension Notes / Reason</label>
+          <textarea
+            className="textarea"
+            style={{ height: 80 }}
+            placeholder="e.g. Extended by 15 days due to campaign workload preventing timely consumption."
+            value={extendForm.reason}
+            onChange={e => setExtendForm({ ...extendForm, reason: e.target.value })}
+          />
         </div>
       </Modal>
     </div>

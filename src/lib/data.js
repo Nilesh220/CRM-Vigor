@@ -216,6 +216,7 @@ export const SopDB = makeSupabaseStore('vlcrm_sops', 'vlcrm2_sops');
 export const CommentDB = makeSupabaseStore('vlcrm_comments', 'vlcrm2_comments');
 export const AttachmentDB = makeSupabaseStore('vlcrm_attachments', 'vlcrm2_attachments');
 export const AttendanceDB = makeSupabaseStore('vlcrm_attendance', 'vlcrm2_attendance');
+export const CompOffDB = makeSupabaseStore('vlcrm_comp_offs', 'vlcrm2_comp_offs');
 
 // ── Supabase Storage upload helper ───────────────────────────
 export async function uploadFile(bucket, path, file) {
@@ -794,6 +795,7 @@ Procedure for verifying influencer content drafts before going live to ensure br
       }
       return demoAttendance;
     })(), 'vlcrm_attendance'),
+    seedTableIfEmpty(CompOffDB, [], 'vlcrm_comp_offs'),
   ]);
 }
 
