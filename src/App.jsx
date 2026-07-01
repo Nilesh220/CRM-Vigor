@@ -33,13 +33,34 @@ import { ROLE_NAV } from './lib/data';
    ══════════════════════════════════════════════════════════════════════ */
 function MobileBlockWall() {
   const ua = navigator.userAgent || '';
-  const isMobileBrowser = /Android|iPhone|iPad|iPod/i.test(ua);
+  const isMobileUA = /Android|iPhone|iPad|iPod/i.test(ua);
+  const isWindows = /Windows/i.test(ua);
+  const isMac = /Macintosh/i.test(ua);
+  const isTouchDevice = (navigator.maxTouchPoints > 1) || ('ontouchstart' in window);
+  const isSmallScreen = window.screen.width < 1025 && window.screen.height < 1025;
+
+  let isMobileBrowser = false;
+
+  if (isMobileUA) {
+    isMobileBrowser = true;
+  } else if (isWindows) {
+    isMobileBrowser = false; // Never block Windows PCs/laptops
+  } else if (isMac) {
+    // iPadOS in "Desktop Mode" reports as Macintosh but has touch points
+    if (isTouchDevice) {
+      isMobileBrowser = true;
+    }
+  } else if (isTouchDevice && isSmallScreen) {
+    // Android "Desktop Mode" (reports as Linux/X11 with touch and small screen size)
+    isMobileBrowser = true;
+  }
+
   const isCapacitorApp = typeof window !== 'undefined' && !!(window.Capacitor);
   const isCapturePage = window.location.pathname.startsWith('/capture');
 
   if (!isMobileBrowser || isCapacitorApp || isCapturePage) return null;
 
-  const isIOS = /iPhone|iPad|iPod/i.test(ua);
+  const isIOS = isMobileUA ? /iPhone|iPad|iPod/i.test(ua) : (isMac && isTouchDevice);
 
   return (
     <div style={{
