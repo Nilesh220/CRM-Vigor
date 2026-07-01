@@ -248,9 +248,16 @@ export async function syncUsersFromDB() {
   const users = (data || []).map(u => {
     const perms = u.permissions || {};
     const payroll = perms.payroll_info || {};
+    // Support multi-zone: DB may have zones[] array or legacy zone string
+    const zonesRaw = u.zones || perms.zones;
+    const zones = Array.isArray(zonesRaw) && zonesRaw.length
+      ? zonesRaw
+      : (u.zone ? [u.zone] : []);
     return {
       id: u.id, name: u.name, email: u.email, password: u.password,
-      role: u.role, dept: u.dept, zone: u.zone,
+      role: u.role, dept: u.dept,
+      zone: u.zone,   // keep legacy field for backward compat
+      zones,          // new multi-zone array
       exportAccess: u.export_access,
       // Always merge ROLE_NAV defaults so new pages (leaves etc) are never blocked
       allowedNav: u.allowed_nav && u.allowed_nav.length
@@ -271,6 +278,31 @@ export async function syncUsersFromDB() {
   return users;
 }
 
+/**
+ * Returns all effective zones for a user:
+ *   - Their profile zones[]
+ *   - Plus any task zones they are assigned to (task-based access grant)
+ */
+export function getUserZones(user) {
+  if (!user) return [];
+  if (['admin', 'founder', 'operations', 'pm'].includes(user.role)) {
+    // Full national access roles see all zones
+    return Object.keys(ZONES);
+  }
+  const profileZones = Array.isArray(user.zones) && user.zones.length
+    ? user.zones
+    : (user.zone ? [user.zone] : []);
+  // Collect task-assigned zones for this user
+  const tasks = TaskDB.all();
+  const taskZones = tasks
+    .filter(t => {
+      const assigned = Array.isArray(t.assignedTo) ? t.assignedTo : (t.assignedTo ? [t.assignedTo] : []);
+      return assigned.includes(user.id) && t.zone;
+    })
+    .map(t => t.zone);
+  return [...new Set([...profileZones, ...taskZones])];
+}
+
 export async function upsertUserToDB(user) {
   const payroll_info = {
     pan: user.pan || null,
@@ -282,21 +314,29 @@ export async function upsertUserToDB(user) {
     ifsc: user.ifsc || null,
   };
 
+  // Store zones in permissions JSON as fallback (in case zones column doesn't exist in DB yet)
+  const zonesArr = Array.isArray(user.zones) && user.zones.length
+    ? user.zones
+    : (user.zone ? [user.zone] : []);
+
   const perms = {
     ...(user.permissions || {}),
-    payroll_info
+    payroll_info,
+    zones: zonesArr, // store multi-zone in permissions JSON as fallback
   };
 
   const basePayload = {
     id: user.id, name: user.name, email: user.email,
     password: user.password, role: user.role, dept: user.dept,
-    zone: user.zone, export_access: user.exportAccess,
+    zone: zonesArr[0] || null, // keep legacy zone as first zone for backward compat
+    export_access: user.exportAccess,
     allowed_nav: user.allowedNav || null,
     permissions: perms,
   };
 
   const fullPayload = {
     ...basePayload,
+    zones: zonesArr,  // write to zones[] column if it exists
     pan: user.pan || null,
     aadhar: user.aadhar || null,
     mobile: user.mobile || null,
@@ -310,7 +350,7 @@ export async function upsertUserToDB(user) {
   const { error } = await supabase.from('vlcrm_users').upsert(fullPayload, { onConflict: 'id' });
   if (error) {
     console.warn('[upsertUserToDB] failed with columns, falling back to JSON storage...', error.message);
-    // Fallback: save without custom columns, storing them inside permissions JSON instead
+    // Fallback: save without zones column, storing zones inside permissions JSON instead
     const { error: fallbackError } = await supabase.from('vlcrm_users').upsert(basePayload, { onConflict: 'id' });
     if (fallbackError) {
       console.error('[upsertUserToDB] fallback failed as well:', fallbackError.message);

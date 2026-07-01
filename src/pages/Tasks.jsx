@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import Modal from '../components/ui/Modal';
+import MultiAssignSelect from '../components/ui/MultiAssignSelect';
 import { useToast, useSession } from '../contexts/AppContext';
-import { TaskDB, getAllUsers, genId, logActivity, getUserName, formatDate, isOverdue, ROLE_LABELS } from '../lib/data';
+import { TaskDB, getAllUsers, genId, logActivity, getUserName, formatDate, isOverdue, ROLE_LABELS, ZONES } from '../lib/data';
 import { Plus, Calendar, AlertCircle, CheckSquare, Edit2, Trash2, GripVertical, Search, X, ListTodo } from 'lucide-react';
 
 const STATUSES   = ['todo','inprogress','review','done'];
@@ -12,7 +13,7 @@ const PRIO_LABELS   = { high:'High', medium:'Medium', low:'Low' };
 const DEPTS = ['VigorSpace','Influencer Team','Finance','HR','Operations','Project Mgmt','Management'];
 
 function emptyTask() {
-  return { title:'', description:'', dept:'VigorSpace', assignedTo:'', priority:'medium', status:'todo', deadline:'', tags:'', subtasks: [] };
+  return { title:'', description:'', dept:'VigorSpace', assignedTo:[], zone:'', priority:'medium', status:'todo', deadline:'', tags:'', subtasks: [] };
 }
 
 export default function Tasks() {
@@ -55,14 +56,19 @@ export default function Tasks() {
   }
   function openEdit(t) {
     setEditId(t.id);
-    setForm({...emptyTask(),...t, tags:Array.isArray(t.tags)?t.tags.join(', '):t.tags||''});
+    // Normalize assignedTo to always be array on load
+    const assignedTo = Array.isArray(t.assignedTo)
+      ? t.assignedTo
+      : (t.assignedTo ? [t.assignedTo] : []);
+    setForm({...emptyTask(),...t, assignedTo, tags:Array.isArray(t.tags)?t.tags.join(', '):t.tags||''});
     setSubtasks(JSON.parse(JSON.stringify(t.subtasks||[])));
     setModal(true);
   }
   async function save() {
     if (!form.title.trim()) { toast('Task title required.','warning'); return; }
     const tags = form.tags ? form.tags.split(',').map(t=>t.trim()).filter(Boolean) : [];
-    const payload = {...form, tags, subtasks};
+    const assignedTo = Array.isArray(form.assignedTo) ? form.assignedTo : (form.assignedTo ? [form.assignedTo] : []);
+    const payload = {...form, tags, subtasks, assignedTo};
     if (editId) {
       await TaskDB.update(editId, payload);
       logActivity('Updated','Task',form.title);
@@ -70,7 +76,8 @@ export default function Tasks() {
     } else {
       payload.id=genId('tsk'); payload.assignedBy=session?.id; payload.createdAt=new Date().toISOString();
       await TaskDB.add(payload);
-      logActivity('Created','Task',form.title,`Assigned to ${getUserName(payload.assignedTo)}`);
+      const names = assignedTo.map(id => getUserName(id)).join(', ');
+      logActivity('Created','Task',form.title,`Assigned to ${names || 'Nobody'}`);
       toast('Task created!','success');
     }
     setModal(false); refresh();
@@ -156,10 +163,10 @@ export default function Tasks() {
                 <div className="kanban-body">
                   {cols.map(t=>{
                     const overdue = isOverdue(t.deadline) && t.status!=='done';
-                    const assignee = getAllUsers().find(u=>u.id===t.assignedTo);
-                    const initials = assignee 
-                      ? assignee.name.split(' ').map(w=>w[0]).join('').slice(0,2) 
-                      : (t.assignedTo ? t.assignedTo.split(' ').map(w=>w[0]).join('').slice(0,2) : '?');
+                    const assigneeIds = Array.isArray(t.assignedTo)
+                      ? t.assignedTo
+                      : (t.assignedTo ? [t.assignedTo] : []);
+                    const allUsers = getAllUsers();
                     const tags = Array.isArray(t.tags) ? t.tags : [];
                     return (
                       <div key={t.id} className="task-card" style={{'--tc':PRIO_COLORS[t.priority]||'var(--primary)'}}
@@ -168,6 +175,7 @@ export default function Tasks() {
                         <div className="task-meta">
                           <span style={{fontSize:'.68rem',fontWeight:700,color:PRIO_COLORS[t.priority]}}>{PRIO_LABELS[t.priority]}</span>
                           {t.dept&&<span className="chip" style={{fontSize:'.65rem',padding:'1px 6px'}}>{t.dept}</span>}
+                          {t.zone&&<span className="chip" style={{fontSize:'.65rem',padding:'1px 6px',background:'var(--primary-hover)',color:'var(--primary)'}}>{ZONES[t.zone]?.label||t.zone}</span>}
                         </div>
                         {tags.length>0&&(
                           <div style={{display:'flex',gap:3,flexWrap:'wrap',marginBottom:7}}>
@@ -185,7 +193,27 @@ export default function Tasks() {
                           </div>
                         )}
                         <div className="task-footer">
-                          <div className="avatar avatar-sm" style={{background:PRIO_COLORS[t.priority]||'var(--primary)'}} title={assignee ? assignee.name : t.assignedTo || 'Unassigned'}>{initials}</div>
+                          {/* Multi-assignee avatars */}
+                          <div style={{display:'flex',alignItems:'center'}}>
+                            {assigneeIds.slice(0,3).map((id,idx) => {
+                              const u = allUsers.find(u=>u.id===id);
+                              const name = u ? u.name : (id||'?');
+                              const ini = name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+                              return (
+                                <div key={id} className="avatar avatar-sm"
+                                  style={{background:PRIO_COLORS[t.priority]||'var(--primary)',marginLeft:idx>0?-6:0,border:'2px solid var(--surface)',zIndex:3-idx}}
+                                  title={name}>{ini}</div>
+                              );
+                            })}
+                            {assigneeIds.length>3&&(
+                              <div className="avatar avatar-sm" style={{background:'var(--border)',color:'var(--text-2)',fontSize:'.6rem',marginLeft:-6,border:'2px solid var(--surface)',fontWeight:700}}>
+                                +{assigneeIds.length-3}
+                              </div>
+                            )}
+                            {assigneeIds.length===0&&(
+                              <div className="avatar avatar-sm" style={{background:'var(--border)',color:'var(--text-3)'}} title="Unassigned">?</div>
+                            )}
+                          </div>
                           {t.deadline&&(
                             <div className={`task-due ${overdue?'overdue':''}`}>
                               {overdue&&<AlertCircle size={10}/>}
@@ -196,6 +224,7 @@ export default function Tasks() {
                         </div>
                       </div>
                     );
+
                   })}
                   {!cols.length&&(
                     <div style={{textAlign:'center',padding:'24px 12px',color:'var(--text-3)',fontSize:'.75rem',border:'2px dashed var(--border)',borderRadius:'var(--r-sm)',margin:'4px'}}>
@@ -226,25 +255,24 @@ export default function Tasks() {
             <select className="select" value={form.dept} onChange={e=>setForm(f=>({...f,dept:e.target.value}))}>
               {DEPTS.map(d=><option key={d}>{d}</option>)}
             </select></div>
-          <div className="form-group"><label className="form-label">Assign To</label>
-            <select className="select" value={form.assignedTo} onChange={e=>setForm(f=>({...f,assignedTo:e.target.value}))}>
-              <option value="">Select Member/Team</option>
-              <optgroup label="Teams">
-                <option value="VigorSpace Team">VigorSpace Team</option>
-                <option value="Influencer Team">Influencer Team</option>
-                <option value="Digital Team">Digital Team</option>
-                <option value="Operations Team">Operations Team</option>
-                <option value="Finance Team">Finance Team</option>
-                <option value="HR Team">HR Team</option>
-              </optgroup>
-              <optgroup label="Members">
-                {users.map(u=><option key={u.id} value={u.id}>{u.name} ({u.dept})</option>)}
-              </optgroup>
+          <div className="form-group"><label className="form-label">Zone</label>
+            <select className="select" value={form.zone||''} onChange={e=>setForm(f=>({...f,zone:e.target.value}))}>
+              <option value="">All Zones / National</option>
+              {Object.entries(ZONES).map(([k,v])=>(
+                <option key={k} value={k}>{v.label}</option>
+              ))}
             </select></div>
           <div className="form-group"><label className="form-label">Priority</label>
             <select className="select" value={form.priority} onChange={e=>setForm(f=>({...f,priority:e.target.value}))}>
               <option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option>
             </select></div>
+        </div>
+        <div className="form-group"><label className="form-label">Assign To</label>
+          <MultiAssignSelect
+            value={Array.isArray(form.assignedTo) ? form.assignedTo : (form.assignedTo ? [form.assignedTo] : [])}
+            onChange={val => setForm(f => ({...f, assignedTo: val}))}
+            users={users}
+          />
         </div>
         <div className="form-row">
           <div className="form-group"><label className="form-label">Status</label>

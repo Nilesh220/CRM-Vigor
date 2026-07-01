@@ -3,7 +3,7 @@ import Modal from '../../components/ui/Modal';
 import MaskedContact from '../../components/ui/MaskedContact';
 import AIImportModal from '../../components/ui/AIImportModal';
 import { useToast, useSession } from '../../contexts/AppContext';
-import { InfluencerDB, genId, logActivity, searchFilter, paginate, canExport, getInfluencerTier, formatFollowers, ZONES, getZoneColor, exportToCSV } from '../../lib/data';
+import { InfluencerDB, genId, logActivity, searchFilter, paginate, canExport, getInfluencerTier, formatFollowers, ZONES, getZoneColor, exportToCSV, getUserZones } from '../../lib/data';
 import { Plus, Search, Download, Star, Edit2, Trash2, ChevronLeft, ChevronRight, X, Sparkles, ExternalLink, Instagram, Youtube } from 'lucide-react';
 
 const TIER_COLORS = { Nano:'badge-green', Micro:'badge-blue', 'Mid Micro':'badge-teal', Macro:'badge-purple', Mega:'badge-yellow' };
@@ -40,9 +40,12 @@ export default function CollegeInfluencers() {
 
   const filtered = (() => {
     let d = data;
-    // P4: vigorspace team members see only their own entries
+    // Zone-based access: vigorspace members see influencers in their assigned zones
     if (session?.role === 'vigorspace') {
-      d = d.filter(i => i.createdBy === session.id);
+      const userZones = getUserZones(session);
+      if (userZones.length > 0) {
+        d = d.filter(i => !i.zone || userZones.includes(i.zone));
+      }
     }
     if (search) d = searchFilter(d, search, ['name','collegeName','city','genre','contentLanguage']);
     if (filterTier) d = d.filter(i => (i.tier||tier(i)) === filterTier);

@@ -5,7 +5,7 @@ import MaskedContact from '../../components/ui/MaskedContact';
 import AIImportModal from '../../components/ui/AIImportModal';
 import ImportCSVModal from '../../components/ui/ImportCSVModal';
 import { useToast, useSession } from '../../contexts/AppContext';
-import { VendorDB, ZONES, genId, logActivity, searchFilter, paginate, canExport, getZoneColor, exportToCSV } from '../../lib/data';
+import { VendorDB, ZONES, genId, logActivity, searchFilter, paginate, canExport, getZoneColor, exportToCSV, getUserZones } from '../../lib/data';
 import { Plus, Search, Download, Handshake, Edit2, Trash2, Eye, ChevronLeft, ChevronRight, X, Check, Sparkles, Linkedin, Globe, Clock, Upload } from 'lucide-react';
 
 const CATS = ['Fabrication','Event Management','Printing','On-Ground Activation','Photography/Video','Logistics','Catering','AV Equipment','Other'];
@@ -47,9 +47,12 @@ export default function Vendors() {
 
   const filtered = (() => {
     let d = data;
-    // P4: vigorspace team members see only their own entries
+    // Zone-based access: vigorspace members see vendors in their assigned zones
     if (session?.role === 'vigorspace') {
-      d = d.filter(v => v.createdBy === session.id);
+      const userZones = getUserZones(session);
+      if (userZones.length > 0) {
+        d = d.filter(v => !v.zone || userZones.includes(v.zone));
+      }
     }
     if (search) d = searchFilter(d, search, ['name','companyName','city','email','region','category']);
     if (filterZone) d = d.filter(v=>v.zone===filterZone);

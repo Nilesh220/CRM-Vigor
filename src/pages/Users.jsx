@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import Modal from '../components/ui/Modal';
 import { useToast, useSession } from '../contexts/AppContext';
-import { getAllUsers, saveUsers, ROLE_LABELS, ROLE_NAV, genId, logActivity, upsertUserToDB, deleteUserFromDB, syncUsersFromDB, ZONES, getZoneBadgeClass, PayslipDB } from '../lib/data';
+import { getAllUsers, saveUsers, ROLE_LABELS, ROLE_NAV, genId, logActivity, upsertUserToDB, deleteUserFromDB, syncUsersFromDB, ZONES, getZoneBadgeClass, getUserZones, PayslipDB } from '../lib/data';
 import { Users as UsersIcon, Plus, Search, Shield, UserX, UserCheck, Key, Edit2, Trash2, CheckSquare, Printer, Coins, Download, Eye } from 'lucide-react';
 
 const ROLES = ['admin', 'founder', 'hr', 'finance', 'vigorspace', 'influencer', 'operations', 'pm'];
@@ -26,7 +26,7 @@ export default function Users() {
   const [modal, setModal] = useState(false);
   const [editId, setEditId] = useState(null);
   const [form, setForm] = useState({
-    name: '', email: '', password: '', role: 'vigorspace', dept: '', zone: '',
+    name: '', email: '', password: '', role: 'vigorspace', dept: '', zones: [],
     exportAccess: false, allowedNav: [], permissions: {},
     // Personal & payroll fields
     mobile: '', pan: '', aadhar: '', dateJoining: '',
@@ -89,7 +89,7 @@ export default function Users() {
   function openAdd() {
     setEditId(null);
     setForm({
-      name: '', email: '', password: '', role: 'vigorspace', dept: '', zone: '',
+      name: '', email: '', password: '', role: 'vigorspace', dept: '', zones: [],
       exportAccess: false, allowedNav: [...(ROLE_NAV['vigorspace'] || [])], permissions: {},
       mobile: '', pan: '', aadhar: '', dateJoining: '',
       bankName: '', bankAccount: '', ifsc: ''
@@ -99,9 +99,13 @@ export default function Users() {
 
   function openEdit(u) {
     setEditId(u.id);
+    // Normalize zones to array (support legacy single zone string)
+    const zones = Array.isArray(u.zones) && u.zones.length
+      ? u.zones
+      : (u.zone ? [u.zone] : []);
     setForm({
       name: u.name, email: u.email, password: '', role: u.role,
-      dept: u.dept||'', zone: u.zone||'', exportAccess: u.exportAccess||false,
+      dept: u.dept||'', zones, exportAccess: u.exportAccess||false,
       allowedNav: [...(u.allowedNav || ROLE_NAV[u.role] || [])], permissions: u.permissions || {},
       mobile: u.mobile||'', pan: u.pan||'', aadhar: u.aadhar||'',
       dateJoining: u.dateJoining||'',
@@ -125,7 +129,8 @@ export default function Users() {
           email: form.email,
           role: form.role,
           dept: form.dept,
-          zone: form.zone || null,
+          zones: form.zones || [],
+          zone: (form.zones && form.zones[0]) || null, // keep legacy for compat
           exportAccess: form.exportAccess,
           allowedNav: form.allowedNav,
           permissions: form.permissions || {},
@@ -155,7 +160,8 @@ export default function Users() {
         password: form.password,
         role: form.role,
         dept: form.dept,
-        zone: form.zone || null,
+        zones: form.zones || [],
+        zone: (form.zones && form.zones[0]) || null,
         exportAccess: form.exportAccess,
         allowedNav: form.allowedNav,
         permissions: form.permissions || {},
@@ -377,13 +383,22 @@ export default function Users() {
                       </td>
                       <td>{u.dept || '—'}</td>
                       <td>
-                        {u.zone ? (
-                          <span className={`badge ${getZoneBadgeClass(u.zone)}`}>
-                            {u.zone.toUpperCase()}
-                          </span>
-                        ) : (
-                          <span style={{ color: 'var(--text-3)', fontSize: '.78rem' }}>National</span>
-                        )}
+                        {(() => {
+                          const userZones = Array.isArray(u.zones) && u.zones.length
+                            ? u.zones
+                            : (u.zone ? [u.zone] : []);
+                          return userZones.length > 0 ? (
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
+                              {userZones.map(z => (
+                                <span key={z} className={`badge ${getZoneBadgeClass(z)}`} style={{ fontSize: '.65rem' }}>
+                                  {z.toUpperCase()}
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <span style={{ color: 'var(--text-3)', fontSize: '.78rem' }}>National</span>
+                          );
+                        })()}
                       </td>
                       <td>
                         <button
@@ -946,18 +961,52 @@ export default function Users() {
         <div className="form-row">
           <div className="form-group">
             <label className="form-label">Zone Assignment</label>
-            <select
-              className="select"
-              value={form.zone || ''}
-              onChange={e => setForm(f => ({ ...f, zone: e.target.value }))}
-            >
-              <option value="">None (National / All Zones)</option>
-              {Object.entries(ZONES).map(([key, val]) => (
-                <option key={key} value={key}>{val.label}</option>
-              ))}
-            </select>
-            <span style={{ fontSize: '.7rem', color: 'var(--text-3)', marginTop: 4, display: 'block' }}>
-              Assigns a regional zone to the member (mainly for VigorSpace team members)
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>
+              {Object.entries(ZONES).map(([key, val]) => {
+                const isSelected = Array.isArray(form.zones) && form.zones.includes(key);
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => {
+                      const zones = Array.isArray(form.zones) ? form.zones : [];
+                      const next = isSelected
+                        ? zones.filter(z => z !== key)
+                        : [...zones, key];
+                      setForm(f => ({ ...f, zones: next }));
+                    }}
+                    style={{
+                      padding: '5px 14px',
+                      borderRadius: '99px',
+                      border: `2px solid ${isSelected ? val.color : 'var(--border)'}`,
+                      background: isSelected ? val.color : 'var(--surface)',
+                      color: isSelected ? '#fff' : 'var(--text-2)',
+                      fontWeight: isSelected ? 700 : 500,
+                      fontSize: '.78rem',
+                      cursor: 'pointer',
+                      transition: 'all .15s',
+                      display: 'flex', alignItems: 'center', gap: 6,
+                    }}
+                  >
+                    {isSelected && <span style={{ fontSize: '.7rem' }}>✓</span>}
+                    {val.label}
+                  </button>
+                );
+              })}
+              {Array.isArray(form.zones) && form.zones.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setForm(f => ({ ...f, zones: [] }))}
+                  style={{
+                    padding: '5px 14px', borderRadius: '99px',
+                    border: '1px solid var(--border)', background: 'transparent',
+                    color: 'var(--text-3)', fontSize: '.75rem', cursor: 'pointer',
+                  }}
+                >Clear All</button>
+              )}
+            </div>
+            <span style={{ fontSize: '.7rem', color: 'var(--text-3)', marginTop: 6, display: 'block' }}>
+              Select one or more zones. Leave empty for National (all zones) access.
             </span>
           </div>
         </div>

@@ -4,9 +4,8 @@ import Modal from '../../components/ui/Modal';
 import MaskedContact from '../../components/ui/MaskedContact';
 import AIImportModal from '../../components/ui/AIImportModal';
 import { useToast, useSession } from '../../contexts/AppContext';
-import {
-  CollegeDB, ZONES, CONTACT_TYPES, genId, logActivity, exportToCSV,
-  searchFilter, paginate, formatDate, canExport, getZoneColor
+import { CollegeDB, ZONES, CONTACT_TYPES, genId, logActivity, exportToCSV,
+  searchFilter, paginate, formatDate, canExport, getZoneColor, getUserZones
 } from '../../lib/data';
 import {
   Plus, Search, Download, School, Phone, Mail, Globe, MapPin,
@@ -61,9 +60,14 @@ export default function Colleges() {
 
   const filtered = (() => {
     let d = data;
-    // P4: vigorspace team members see only their own entries
+    // Zone-based access: vigorspace members see colleges in their assigned zones
+    // (profile zones + task-assigned zones). Empty zones = national access (see all).
     if (session?.role === 'vigorspace') {
-      d = d.filter(c => c.createdBy === session.id);
+      const userZones = getUserZones(session);
+      if (userZones.length > 0) {
+        d = d.filter(c => !c.zone || userZones.includes(c.zone));
+      }
+      // If userZones is empty, they see all (national scope)
     }
     if (search) d = searchFilter(d, search, ['name','city','state','naacGrade','affiliation','festName']);
     if (filterZone) d = d.filter(c => c.zone === filterZone);

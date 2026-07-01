@@ -5,6 +5,7 @@ import {
   formatINR, formatDate, searchFilter, exportToCSV,
   CAMPAIGN_STATUSES, CAMPAIGN_STATUS_LABELS, CAMPAIGN_STATUS_COLORS, CAMPAIGN_TYPES
 } from '../lib/data';
+import MultiAssignSelect from '../components/ui/MultiAssignSelect';
 import CommentPanel from '../components/ui/CommentPanel';
 import AttachmentsPanel from '../components/ui/AttachmentsPanel';
 import {
@@ -28,7 +29,7 @@ export default function Campaigns() {
   const [form, setForm] = useState({
     name: '', clientId: '', clientName: '', category: '', campaignType: '',
     status: 'planning', startDate: '', endDate: '', budget: '', spent: '',
-    deliverables: '', brief: '', assignedTo: '', assignedToName: ''
+    deliverables: '', brief: '', assignedTo: [], assignedToName: ''
   });
 
   const users = getAllUsers();
@@ -62,20 +63,24 @@ export default function Campaigns() {
     setForm({
       name: '', clientId: '', clientName: '', category: '', campaignType: '',
       status: 'planning', startDate: '', endDate: '', budget: '', spent: '',
-      deliverables: '', brief: '', assignedTo: '', assignedToName: ''
+      deliverables: '', brief: '', assignedTo: [], assignedToName: ''
     });
     setModal(true);
   }
 
   function openEdit(c) {
     setEditId(c.id);
+    // Normalize assignedTo to array
+    const assignedTo = Array.isArray(c.assignedTo)
+      ? c.assignedTo
+      : (c.assignedTo ? [c.assignedTo] : []);
     setForm({
       name: c.name || '', clientId: c.clientId || '', clientName: c.clientName || '',
       category: c.category || '', campaignType: c.campaignType || '',
       status: c.status || 'planning', startDate: c.startDate || '',
       endDate: c.endDate || '', budget: c.budget || '', spent: c.spent || '',
       deliverables: c.deliverables || '', brief: c.brief || '',
-      assignedTo: c.assignedTo || '', assignedToName: c.assignedToName || ''
+      assignedTo, assignedToName: c.assignedToName || ''
     });
     setModal(true);
   }
@@ -83,11 +88,16 @@ export default function Campaigns() {
   async function save() {
     if (!form.name.trim()) { toast('Campaign name is required', 'warning'); return; }
     const client = clients.find(c => c.id === form.clientId);
-    const assignee = users.find(u => u.id === form.assignedTo);
+    const assignedTo = Array.isArray(form.assignedTo) ? form.assignedTo : (form.assignedTo ? [form.assignedTo] : []);
+    const assignedToNames = assignedTo.map(id => {
+      const u = users.find(u => u.id === id);
+      return u ? u.name : id;
+    });
     const payload = {
       ...form,
+      assignedTo,
       clientName: client?.brandName || form.clientName || '',
-      assignedToName: assignee?.name || form.assignedToName || '',
+      assignedToName: assignedToNames.join(', '),
       budget: parseFloat(form.budget) || 0,
       spent: parseFloat(form.spent) || 0,
       addedBy: session?.id,
@@ -383,20 +393,11 @@ export default function Campaigns() {
               </div>
               <div className="form-group">
                 <label className="form-label">Assigned To</label>
-                <select className="select" value={form.assignedTo} onChange={e => setForm({ ...form, assignedTo: e.target.value })}>
-                  <option value="">Unassigned</option>
-                  <optgroup label="Teams">
-                    <option value="VigorSpace Team">VigorSpace Team</option>
-                    <option value="Influencer Team">Influencer Team</option>
-                    <option value="Digital Team">Digital Team</option>
-                    <option value="Operations Team">Operations Team</option>
-                    <option value="Finance Team">Finance Team</option>
-                    <option value="HR Team">HR Team</option>
-                  </optgroup>
-                  <optgroup label="Members">
-                    {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-                  </optgroup>
-                </select>
+                <MultiAssignSelect
+                  value={Array.isArray(form.assignedTo) ? form.assignedTo : (form.assignedTo ? [form.assignedTo] : [])}
+                  onChange={val => setForm({ ...form, assignedTo: val })}
+                  users={users}
+                />
               </div>
               <div className="form-group">
                 <label className="form-label">Campaign Brief</label>
