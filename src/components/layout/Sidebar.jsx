@@ -4,7 +4,7 @@ import { ROLE_LABELS, ROLE_NAV } from '../../lib/data';
 import {
   LayoutDashboard, Globe, School, Handshake, Star, CheckSquare,
   TrendingUp, FileBarChart, Users, LogOut, ChevronDown,
-  Target, Building2, Megaphone, CalendarDays, Crosshair, BookOpen, MapPin
+  Target, Building2, Megaphone, CalendarDays, Crosshair, BookOpen, MapPin, Clock
 } from 'lucide-react';
 
 const ALL_NAV = [
@@ -24,6 +24,7 @@ const ALL_NAV = [
   { key:'influencers', label:'Influencers',   icon:Star,            to:'/influencers',section:'influencers' },
   { key:'tasks',       label:'Tasks',         icon:CheckSquare,     to:'/tasks',      section:'tasks' },
   { key:'leaves',      label:'Leave Planner', icon:CalendarDays,    to:'/leaves',     section:'leaves' },
+  { key:'attendance',  label:'Attendance',    icon:Clock,           to:'/attendance',  section:'attendance' },
   { section:'Strategy' },
   { key:'okrs',        label:'OKR Tracker',   icon:Crosshair,       to:'/okrs',       section:'okrs' },
   { key:'timeline',    label:'Campaign Timeline', icon:CalendarDays, to:'/timeline',   section:'timeline' },
@@ -71,7 +72,7 @@ export default function Sidebar() {
             let sectionKeys = [];
             if (item.section === 'Sales') sectionKeys = ['leads', 'clients', 'campaigns', 'events'];
             else if (item.section === 'VigorSpace') sectionKeys = ['vigorspace', 'colleges', 'vendors', 'college_influencers'];
-            else if (item.section === 'Team') sectionKeys = ['influencers', 'tasks', 'leaves'];
+            else if (item.section === 'Team') sectionKeys = ['influencers', 'tasks', 'leaves', 'attendance'];
             else if (item.section === 'Strategy') sectionKeys = ['okrs', 'timeline', 'sops'];
             else if (item.section === 'Business') sectionKeys = ['finance', 'reports'];
             else if (item.section === 'Admin') sectionKeys = ['users'];

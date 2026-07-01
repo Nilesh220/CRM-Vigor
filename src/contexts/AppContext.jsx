@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { getSession, setSession, clearSession, getAllUsers, initDemoData, syncUsersFromDB } from '../lib/data';
+import { getSession, setSession, clearSession, getAllUsers, initDemoData, syncUsersFromDB, recordAttendanceForToday } from '../lib/data';
 
 const AppCtx = createContext(null);
 
@@ -12,7 +12,11 @@ export function AppProvider({ children }) {
     async function bootstrap() {
       // Restore session from cache immediately
       const s = getSession();
-      if (s) setSessionState(s);
+      if (s) {
+        setSessionState(s);
+        // Fire-and-forget daily checkin
+        recordAttendanceForToday(s);
+      }
 
       // Seed Supabase + sync all data (non-blocking for UI)
       try {
@@ -35,6 +39,7 @@ export function AppProvider({ children }) {
     const s = { ...u }; delete s.password;
     setSession(s);
     setSessionState(s);
+    recordAttendanceForToday(s); // Daily checkin on manual login
     return s;
   }, []);
 

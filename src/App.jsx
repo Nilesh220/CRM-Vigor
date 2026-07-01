@@ -23,6 +23,7 @@ import Timeline from './pages/Timeline';
 import Sops from './pages/Sops';
 import ResetPassword from './pages/ResetPassword';
 import CaptureForm from './pages/CaptureForm';
+import Attendance from './pages/Attendance';
 
 import { ROLE_NAV } from './lib/data';
 
@@ -272,6 +273,7 @@ function Router() {
           <Route path="okrs" element={<PageGuard pageKey="okrs"><OKRs /></PageGuard>} />
           <Route path="timeline" element={<PageGuard pageKey="timeline"><Timeline /></PageGuard>} />
           <Route path="sops" element={<PageGuard pageKey="sops"><Sops /></PageGuard>} />
+          <Route path="attendance" element={<PageGuard pageKey="attendance"><Attendance /></PageGuard>} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
         <Route path="/capture" element={<CaptureForm />} />

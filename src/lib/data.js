@@ -22,14 +22,14 @@ export const ROLE_LABELS = {
 };
 
 export const ROLE_NAV = {
-  admin:      ['dashboard', 'leads', 'clients', 'campaigns', 'events', 'vigorspace', 'colleges', 'vendors', 'college_influencers', 'influencers', 'tasks', 'finance', 'reports', 'users', 'leaves', 'okrs', 'timeline', 'sops'],
-  founder:    ['dashboard', 'leads', 'clients', 'campaigns', 'events', 'vigorspace', 'colleges', 'vendors', 'college_influencers', 'influencers', 'tasks', 'finance', 'reports', 'users', 'leaves', 'okrs', 'timeline', 'sops'],
-  hr:         ['dashboard', 'users', 'finance', 'tasks', 'reports', 'leaves', 'okrs', 'sops'],
-  finance:    ['dashboard', 'clients', 'finance', 'reports', 'leaves', 'okrs', 'timeline', 'sops'],
-  vigorspace: ['dashboard', 'vigorspace', 'colleges', 'vendors', 'college_influencers', 'tasks', 'events', 'leaves', 'okrs', 'sops'],
-  influencer: ['dashboard', 'influencers', 'campaigns', 'tasks', 'leaves', 'okrs', 'sops'],
-  operations: ['dashboard', 'leads', 'clients', 'campaigns', 'events', 'vigorspace', 'colleges', 'vendors', 'college_influencers', 'influencers', 'tasks', 'finance', 'reports', 'users', 'leaves', 'okrs', 'timeline', 'sops'],
-  pm:         ['dashboard', 'leads', 'clients', 'campaigns', 'events', 'vigorspace', 'colleges', 'vendors', 'college_influencers', 'influencers', 'tasks', 'finance', 'reports', 'users', 'leaves', 'okrs', 'timeline', 'sops'],
+  admin:      ['dashboard', 'leads', 'clients', 'campaigns', 'events', 'vigorspace', 'colleges', 'vendors', 'college_influencers', 'influencers', 'tasks', 'finance', 'reports', 'users', 'leaves', 'okrs', 'timeline', 'sops', 'attendance'],
+  founder:    ['dashboard', 'leads', 'clients', 'campaigns', 'events', 'vigorspace', 'colleges', 'vendors', 'college_influencers', 'influencers', 'tasks', 'finance', 'reports', 'users', 'leaves', 'okrs', 'timeline', 'sops', 'attendance'],
+  hr:         ['dashboard', 'users', 'finance', 'tasks', 'reports', 'leaves', 'okrs', 'sops', 'attendance'],
+  finance:    ['dashboard', 'clients', 'finance', 'reports', 'leaves', 'okrs', 'timeline', 'sops', 'attendance'],
+  vigorspace: ['dashboard', 'vigorspace', 'colleges', 'vendors', 'college_influencers', 'tasks', 'events', 'leaves', 'okrs', 'sops', 'attendance'],
+  influencer: ['dashboard', 'influencers', 'campaigns', 'tasks', 'leaves', 'okrs', 'sops', 'attendance'],
+  operations: ['dashboard', 'leads', 'clients', 'campaigns', 'events', 'vigorspace', 'colleges', 'vendors', 'college_influencers', 'influencers', 'tasks', 'finance', 'reports', 'users', 'leaves', 'okrs', 'timeline', 'sops', 'attendance'],
+  pm:         ['dashboard', 'leads', 'clients', 'campaigns', 'events', 'vigorspace', 'colleges', 'vendors', 'college_influencers', 'influencers', 'tasks', 'finance', 'reports', 'users', 'leaves', 'okrs', 'timeline', 'sops', 'attendance'],
 };
 
 // ── Lead / Campaign / Event Constants ─────────────────────────
@@ -215,6 +215,7 @@ export const OKRDB = makeSupabaseStore('vlcrm_okrs', 'vlcrm2_okrs');
 export const SopDB = makeSupabaseStore('vlcrm_sops', 'vlcrm2_sops');
 export const CommentDB = makeSupabaseStore('vlcrm_comments', 'vlcrm2_comments');
 export const AttachmentDB = makeSupabaseStore('vlcrm_attachments', 'vlcrm2_attachments');
+export const AttendanceDB = makeSupabaseStore('vlcrm_attendance', 'vlcrm2_attendance');
 
 // ── Supabase Storage upload helper ───────────────────────────
 export async function uploadFile(bucket, path, file) {
@@ -419,6 +420,43 @@ export function setSession(u) { localStorage.setItem('vlcrm2_session', JSON.stri
 export function clearSession() { localStorage.removeItem('vlcrm2_session'); }
 export function canExport() { return !!getSession()?.exportAccess; }
 export function hasNav(k) { const s = getSession(); return (ROLE_NAV[s?.role] || []).includes(k); }
+
+// Daily Auto Attendance Logging Helper
+export async function recordAttendanceForToday(user) {
+  if (!user || !user.id) return;
+  try {
+    await AttendanceDB.syncFromDB();
+    const todayStr = new Date().toISOString().split('T')[0];
+    const list = AttendanceDB.all();
+    const alreadyCheckedIn = list.some(a => a.userId === user.id && a.date === todayStr);
+
+    if (!alreadyCheckedIn) {
+      const now = new Date();
+      const checkInTime = now.toTimeString().split(' ')[0];
+      // Late threshold standard is 10:00 AM
+      const isLate = now.getHours() > 10 || (now.getHours() === 10 && now.getMinutes() > 0);
+      const status = isLate ? 'late' : 'present';
+
+      const entry = {
+        id: genId('att'),
+        userId: user.id,
+        userName: user.name,
+        date: todayStr,
+        checkIn: checkInTime,
+        checkOut: null,
+        status: status,
+        type: 'auto',
+        location: 'office',
+        note: isLate ? 'Auto logged late arrival (after 10:00 AM)' : 'Auto logged present'
+      };
+
+      await AttendanceDB.add(entry);
+      logActivity('Checked In', 'Attendance', user.name, `at ${checkInTime} (${status})`);
+    }
+  } catch (err) {
+    console.error('[recordAttendanceForToday] failed to log daily attendance:', err);
+  }
+}
 
 // ── Utils ─────────────────────────────────────────────────────
 export function genId(p = 'id') { return p + '_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6); }
@@ -717,6 +755,45 @@ Procedure for verifying influencer content drafts before going live to ensure br
     seedTableIfEmpty(CampaignDB, [], 'vlcrm_campaigns'),
     seedTableIfEmpty(EventDB, [], 'vlcrm_events'),
     seedTableIfEmpty(ShortlistDB, [], 'vlcrm_campaign_shortlists'),
+    seedTableIfEmpty(AttendanceDB, (() => {
+      const demoAttendance = [];
+      const usersToSeed = [
+        { id: 'u1', name: 'Nilesh Patil' },
+        { id: 'u2', name: 'Pravash' },
+      ];
+      const today = new Date();
+      let dayOffset = 0;
+      let seededDays = 0;
+      while (seededDays < 15) {
+        const d = new Date(today);
+        d.setDate(today.getDate() - dayOffset);
+        const dayOfWeek = d.getDay();
+        const dateStr = d.toISOString().split('T')[0];
+        if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+          usersToSeed.forEach(u => {
+            const randHour = 9;
+            const randMin = Math.floor(Math.random() * 50);
+            const isLate = randHour === 10 || (randHour === 9 && randMin >= 30);
+            const status = isLate ? 'late' : 'present';
+            demoAttendance.push({
+              id: `att_demo_${u.id}_${seededDays}`,
+              userId: u.id,
+              userName: u.name,
+              date: dateStr,
+              checkIn: `${randHour.padStart ? randHour.toString().padStart(2, '0') : '09'}:${randMin.toString().padStart(2, '0')}:00`,
+              checkOut: '18:30:00',
+              status: status,
+              type: 'auto',
+              location: Math.random() > 0.85 ? 'field' : 'office',
+              note: status === 'late' ? 'Slightly delayed in transit' : 'Regular check-in'
+            });
+          });
+          seededDays++;
+        }
+        dayOffset++;
+      }
+      return demoAttendance;
+    })(), 'vlcrm_attendance'),
   ]);
 }
 
