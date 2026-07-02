@@ -96,6 +96,8 @@ export default function Finance() {
     bankIfsc: 'HDFC0000104',
     paymentTerms: 'Payment due within 15 days of invoice date.',
     logoUrl: '/vigor-logo-new-01.png',
+    clientGst: '27AABCV8492K1Z9',
+    stateCode: '27 (Maharashtra)',
   });
 
   const handleLogoUpload = (e) => {
@@ -429,6 +431,16 @@ export default function Finance() {
                   </div>
                 </div>
                 <div className="form-row">
+                  <div className="form-group">
+                    <label className="form-label">Client GST No.</label>
+                    <input className="input" value={invForm.clientGst || ''} onChange={e=>setInvForm(f=>({...f,clientGst:e.target.value}))} placeholder="e.g., 27AABCV8492K1Z9"/>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">State Code / Place of Supply</label>
+                    <input className="input" value={invForm.stateCode || ''} onChange={e=>setInvForm(f=>({...f,stateCode:e.target.value}))} placeholder="e.g., 27 (Maharashtra)"/>
+                  </div>
+                </div>
+                <div className="form-row">
                   <div className="form-group"><label className="form-label">Invoice #</label>
                     <input className="input" value={invForm.invoiceNo} onChange={e=>setInvForm(f=>({...f,invoiceNo:e.target.value}))}/></div>
                   <div className="form-group"><label className="form-label">Invoice Date</label>
@@ -528,6 +540,8 @@ export default function Finance() {
                     <div style={{fontWeight:700,color:'#4b5563',textTransform:'uppercase',fontSize:'.65rem',letterSpacing:'.05em',marginBottom:4}}>Billed To:</div>
                     <div style={{fontWeight:700,fontSize:'.85rem',color:'#111827'}}>{invForm.clientName}</div>
                     <div style={{color:'#4b5563',marginTop:3,whiteSpace:'pre-wrap',maxWidth:240}}>{invForm.address}</div>
+                    {invForm.clientGst && <div style={{marginTop:5,fontSize:'.72rem'}}><span style={{color:'#6b7280'}}>GSTIN:</span> <strong>{invForm.clientGst}</strong></div>}
+                    {invForm.stateCode && <div style={{marginTop:2,fontSize:'.72rem'}}><span style={{color:'#6b7280'}}>State Code / POS:</span> <strong>{invForm.stateCode}</strong></div>}
                   </div>
                   <div style={{textAlign:'right'}}>
                     <div style={{marginBottom:4}}><span style={{color:'#6b7280'}}>Date:</span> <strong>{invForm.invoiceDate}</strong></div>
