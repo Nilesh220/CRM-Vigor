@@ -84,6 +84,7 @@ export default function Finance() {
     address: 'DLF Cyber City, Sector 24, Gurugram, Haryana 122002',
     invoiceNo: 'VL/2026/084',
     buyerOrderNo: '',
+    buyerOrderDate: '',
     invoiceDate: new Date().toISOString().slice(0,10),
     dueDate: new Date(Date.now() + 15*86400000).toISOString().slice(0,10),
     items: [
@@ -106,7 +107,6 @@ export default function Finance() {
   const DOC_TYPE_CONFIG = {
     invoice:  { label: 'Tax Invoice',          title: 'TAX INVOICE',          numLabel: 'Invoice No:',  recipientLabel: 'Billed To:',        prefix: 'VL/2026/',   showBank: true  },
     estimate: { label: 'Estimate / Quotation', title: 'ESTIMATE / QUOTATION', numLabel: 'Estimate No:', recipientLabel: 'Prepared For:',     prefix: 'EST/2026/', showBank: false },
-    po:       { label: 'Purchase Order',       title: 'PURCHASE ORDER',       numLabel: 'PO No:',       recipientLabel: 'Vendor / Supplier:', prefix: 'PO/2026/',  showBank: true  },
   };
 
   const handleDocTypeChange = (type) => {
@@ -455,7 +455,7 @@ export default function Finance() {
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">{invForm.docType==='po' ? 'Vendor / Supplier Name' : 'Client Name'}</label>
+                  <label className="form-label">Client Name</label>
                   <input className="input" value={invForm.clientName} onChange={e=>setInvForm(f=>({...f,clientName:e.target.value}))}/>
                 </div>
                 <div className="form-group">
@@ -487,16 +487,22 @@ export default function Finance() {
                     <label className="form-label">{DOC_TYPE_CONFIG[invForm.docType].numLabel.replace(':','')}</label>
                     <input className="input" value={invForm.invoiceNo} onChange={e=>setInvForm(f=>({...f,invoiceNo:e.target.value}))}/>
                   </div>
-                  <div className="form-group"><label className="form-label">{invForm.docType==='po' ? 'PO Date' : invForm.docType==='estimate' ? 'Estimate Date' : 'Invoice Date'}</label>
+                  <div className="form-group"><label className="form-label">{invForm.docType==='estimate' ? 'Estimate Date' : 'Invoice Date'}</label>
                     <input className="input" type="date" value={invForm.invoiceDate} onChange={e=>setInvForm(f=>({...f,invoiceDate:e.target.value}))}/></div>
                   <div className="form-group"><label className="form-label">{invForm.docType==='estimate' ? 'Valid Until' : 'Due Date'}</label>
                     <input className="input" type="date" value={invForm.dueDate} onChange={e=>setInvForm(f=>({...f,dueDate:e.target.value}))}/></div>
                 </div>
-                {/* Buyer's Order No — only for PO type */}
-                {invForm.docType==='po' && (
-                  <div className="form-group">
-                    <label className="form-label">Buyer's Order No. <span style={{fontSize:'.72rem',color:'var(--text-2)'}}>(Client's PO Reference)</span></label>
-                    <input className="input" value={invForm.buyerOrderNo||''} onChange={e=>setInvForm(f=>({...f,buyerOrderNo:e.target.value}))} placeholder="e.g., CLIENT/PO/2026/001"/>
+                {/* Buyer's Order No & Dated — only for Invoice type */}
+                {invForm.docType==='invoice' && (
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label className="form-label">Buyer's Order No. <span style={{fontSize:'.72rem',color:'var(--text-2)'}}>(PO Reference)</span></label>
+                      <input className="input" value={invForm.buyerOrderNo||''} onChange={e=>setInvForm(f=>({...f,buyerOrderNo:e.target.value}))} placeholder="e.g., PO-1234"/>
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Buyer's Order Date <span style={{fontSize:'.72rem',color:'var(--text-2)'}}>(Dated)</span></label>
+                      <input className="input" type="date" value={invForm.buyerOrderDate||''} onChange={e=>setInvForm(f=>({...f,buyerOrderDate:e.target.value}))}/>
+                    </div>
                   </div>
                 )}
                 
@@ -587,9 +593,6 @@ export default function Finance() {
                   <div style={{textAlign:'right'}}>
                     <h1 style={{fontSize:'1.5rem',fontWeight:800,color:'#9ca3af',letterSpacing:'.05em',margin:0}}>{DOC_TYPE_CONFIG[invForm.docType].title}</h1>
                     <div style={{fontSize:'.82rem',fontWeight:700,color:'#374151',marginTop:4}}>{DOC_TYPE_CONFIG[invForm.docType].numLabel} {invForm.invoiceNo}</div>
-                    {invForm.docType==='po' && invForm.buyerOrderNo && (
-                      <div style={{fontSize:'.72rem',color:'#6b7280',marginTop:2}}>Buyer's Order No: <strong>{invForm.buyerOrderNo}</strong></div>
-                    )}
                   </div>
                 </div>
 
@@ -603,8 +606,14 @@ export default function Finance() {
                     {invForm.stateCode && <div style={{marginTop:2,fontSize:'.72rem'}}><span style={{color:'#6b7280'}}>State Code / POS:</span> <strong>{invForm.stateCode}</strong></div>}
                   </div>
                   <div style={{textAlign:'right'}}>
-                    <div style={{marginBottom:4}}><span style={{color:'#6b7280'}}>{invForm.docType==='po' ? 'PO Date:' : invForm.docType==='estimate' ? 'Estimate Date:' : 'Date:'}</span> <strong>{invForm.invoiceDate}</strong></div>
-                    <div><span style={{color:'#6b7280'}}>{invForm.docType==='estimate' ? 'Valid Until:' : 'Due Date:'}</span> <strong>{invForm.dueDate}</strong></div>
+                    <div style={{marginBottom:4}}><span style={{color:'#6b7280'}}>{invForm.docType==='estimate' ? 'Estimate Date:' : 'Date:'}</span> <strong>{invForm.invoiceDate}</strong></div>
+                    <div style={{marginBottom:invForm.docType==='invoice' && (invForm.buyerOrderNo || invForm.buyerOrderDate) ? 4 : 0}}><span style={{color:'#6b7280'}}>{invForm.docType==='estimate' ? 'Valid Until:' : 'Due Date:'}</span> <strong>{invForm.dueDate}</strong></div>
+                    {invForm.docType==='invoice' && invForm.buyerOrderNo && (
+                      <div style={{marginBottom:invForm.buyerOrderDate ? 4 : 0}}><span style={{color:'#6b7280'}}>Buyer's Order No:</span> <strong>{invForm.buyerOrderNo}</strong></div>
+                    )}
+                    {invForm.docType==='invoice' && invForm.buyerOrderDate && (
+                      <div><span style={{color:'#6b7280'}}>Dated:</span> <strong>{invForm.buyerOrderDate}</strong></div>
+                    )}
                   </div>
                 </div>
 
