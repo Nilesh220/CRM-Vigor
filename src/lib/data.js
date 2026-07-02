@@ -116,58 +116,99 @@ export function makeSupabaseStore(tableName, cacheKey) {
   };
 
   const add = async (item) => {
-    const payload = camelToSnake(item);
-    const { data, error } = await supabase.from(tableName).insert(payload).select().single();
-    if (error) {
-      console.error(`[${tableName}] insert error`, error);
-      // fallback: save to cache only
-      const arr = cacheGet(); arr.unshift(item); cacheSet(arr);
-      return item;
+    let payload = camelToSnake(item);
+    let attempt = 0;
+    while (attempt < 5) {
+      const { data, error } = await supabase.from(tableName).insert(payload).select().single();
+      if (!error) {
+        const row = snakeToCamel(data);
+        const arr = cacheGet(); arr.unshift(row); cacheSet(arr);
+        return row;
+      }
+      const match = error.message?.match(/Could not find the '([^']+)' column/);
+      if (match && match[1]) {
+        const missingColumn = match[1];
+        console.warn(`[${tableName}] auto-recovering insert: removing missing column '${missingColumn}'`);
+        delete payload[missingColumn];
+        attempt++;
+      } else {
+        console.error(`[${tableName}] insert error`, error);
+        // fallback: save to cache only
+        const arr = cacheGet(); arr.unshift(item); cacheSet(arr);
+        return item;
+      }
     }
-    const row = snakeToCamel(data);
-    const arr = cacheGet(); arr.unshift(row); cacheSet(arr);
-    return row;
   };
 
   const update = async (id, patch) => {
-    const payload = camelToSnake({ ...patch, updatedAt: new Date().toISOString() });
-    const { data, error } = await supabase.from(tableName).update(payload).eq('id', id).select().single();
-    if (error) {
-      console.error(`[${tableName}] update error`, error);
-      // fallback: update cache only
-      const arr = cacheGet();
-      const i = arr.findIndex(r => r.id === id);
-      if (i > -1) { arr[i] = { ...arr[i], ...patch, updatedAt: new Date().toISOString() }; cacheSet(arr); return arr[i]; }
-      return null;
+    let payload = camelToSnake({ ...patch, updatedAt: new Date().toISOString() });
+    let attempt = 0;
+    while (attempt < 5) {
+      const { data, error } = await supabase.from(tableName).update(payload).eq('id', id).select().single();
+      if (!error) {
+        const row = snakeToCamel(data);
+        const arr = cacheGet();
+        const i = arr.findIndex(r => r.id === id);
+        if (i > -1) arr[i] = row; else arr.unshift(row);
+        cacheSet(arr);
+        return row;
+      }
+      const match = error.message?.match(/Could not find the '([^']+)' column/);
+      if (match && match[1]) {
+        const missingColumn = match[1];
+        console.warn(`[${tableName}] auto-recovering update: removing missing column '${missingColumn}'`);
+        delete payload[missingColumn];
+        attempt++;
+      } else {
+        console.error(`[${tableName}] update error`, error);
+        // fallback: update cache only
+        const arr = cacheGet();
+        const i = arr.findIndex(r => r.id === id);
+        if (i > -1) {
+          arr[i] = { ...arr[i], ...patch, updatedAt: new Date().toISOString() };
+          cacheSet(arr);
+          return arr[i];
+        }
+        return null;
+      }
     }
-    const row = snakeToCamel(data);
-    const arr = cacheGet();
-    const i = arr.findIndex(r => r.id === id);
-    if (i > -1) arr[i] = row; else arr.unshift(row);
-    cacheSet(arr);
   };
 
   const bulkAdd = async (items) => {
     if (!Array.isArray(items) || !items.length) return [];
-    const payloads = items.map(camelToSnake);
-    const { data, error } = await supabase.from(tableName).insert(payloads).select();
-    if (error) {
-      console.error(`[${tableName}] bulk insert error`, error);
-      const arr = cacheGet();
-      items.forEach(item => arr.unshift(item));
-      cacheSet(arr);
-      return items;
-    }
-    const rows = (data || []).map(snakeToCamel);
-    const arr = cacheGet();
-    rows.forEach(row => {
-      // Prevent duplicates in cache
-      if (!arr.some(r => r.id === row.id)) {
-        arr.unshift(row);
+    let payloads = items.map(camelToSnake);
+    let attempt = 0;
+    while (attempt < 5) {
+      const { data, error } = await supabase.from(tableName).insert(payloads).select();
+      if (!error) {
+        const rows = (data || []).map(snakeToCamel);
+        const arr = cacheGet();
+        rows.forEach(row => {
+          if (!arr.some(r => r.id === row.id)) {
+            arr.unshift(row);
+          }
+        });
+        cacheSet(arr);
+        return rows;
       }
-    });
-    cacheSet(arr);
-    return rows;
+      const match = error.message?.match(/Could not find the '([^']+)' column/);
+      if (match && match[1]) {
+        const missingColumn = match[1];
+        console.warn(`[${tableName}] auto-recovering bulk insert: removing missing column '${missingColumn}'`);
+        payloads = payloads.map(p => {
+          const newP = { ...p };
+          delete newP[missingColumn];
+          return newP;
+        });
+        attempt++;
+      } else {
+        console.error(`[${tableName}] bulk insert error`, error);
+        const arr = cacheGet();
+        items.forEach(item => arr.unshift(item));
+        cacheSet(arr);
+        return items;
+      }
+    }
   };
 
   const remove = async (id) => {
