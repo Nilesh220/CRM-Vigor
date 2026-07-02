@@ -78,9 +78,12 @@ export default function Finance() {
   const [budForm, setBudForm] = useState({campaignName:'',client:'',totalBudget:'',spentAmount:'0',dept:'VigorSpace',status:'Active',month:''});
   
   const [invForm, setInvForm] = useState({
+    docType: 'invoice',
+    showBankDetails: true,
     clientName: 'Pepsi India',
     address: 'DLF Cyber City, Sector 24, Gurugram, Haryana 122002',
     invoiceNo: 'VL/2026/084',
+    buyerOrderNo: '',
     invoiceDate: new Date().toISOString().slice(0,10),
     dueDate: new Date(Date.now() + 15*86400000).toISOString().slice(0,10),
     items: [
@@ -99,6 +102,25 @@ export default function Finance() {
     clientGst: '27AABCV8492K1Z9',
     stateCode: '27 (Maharashtra)',
   });
+
+  const DOC_TYPE_CONFIG = {
+    invoice:  { label: 'Tax Invoice',          title: 'TAX INVOICE',          numLabel: 'Invoice No:',  recipientLabel: 'Billed To:',        prefix: 'VL/2026/',   showBank: true  },
+    estimate: { label: 'Estimate / Quotation', title: 'ESTIMATE / QUOTATION', numLabel: 'Estimate No:', recipientLabel: 'Prepared For:',     prefix: 'EST/2026/', showBank: false },
+    po:       { label: 'Purchase Order',       title: 'PURCHASE ORDER',       numLabel: 'PO No:',       recipientLabel: 'Vendor / Supplier:', prefix: 'PO/2026/',  showBank: true  },
+  };
+
+  const handleDocTypeChange = (type) => {
+    const cfg = DOC_TYPE_CONFIG[type];
+    setInvForm(f => ({
+      ...f,
+      docType: type,
+      showBankDetails: cfg.showBank,
+      // Only swap prefix if user hasn't customised the number yet
+      invoiceNo: f.invoiceNo.startsWith(DOC_TYPE_CONFIG[f.docType].prefix)
+        ? cfg.prefix + f.invoiceNo.slice(DOC_TYPE_CONFIG[f.docType].prefix.length)
+        : f.invoiceNo,
+    }));
+  };
 
   const handleLogoUpload = (e) => {
     const file = e.target.files[0];
@@ -410,10 +432,30 @@ export default function Finance() {
           <div className="grid-2">
             {/* Invoice Form (Left) */}
             <div className="card">
-              <div className="card-header"><div className="card-title">Invoice Details</div></div>
+              <div className="card-header"><div className="card-title">Document Generator</div></div>
               <div className="card-body">
+                {/* Document Type Selector */}
                 <div className="form-group">
-                  <label className="form-label">Client Name</label>
+                  <label className="form-label">Document Type</label>
+                  <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+                    {Object.entries(DOC_TYPE_CONFIG).map(([key, cfg]) => (
+                      <button
+                        key={key}
+                        onClick={() => handleDocTypeChange(key)}
+                        style={{
+                          padding:'6px 14px', borderRadius:20, fontSize:'.78rem', fontWeight:600, cursor:'pointer',
+                          border: invForm.docType===key ? '2px solid #3b82f6' : '1.5px solid var(--border)',
+                          background: invForm.docType===key ? '#eff6ff' : 'var(--bg)',
+                          color: invForm.docType===key ? '#1d4ed8' : 'var(--text-2)',
+                          transition:'all .15s',
+                        }}
+                      >{cfg.label}</button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">{invForm.docType==='po' ? 'Vendor / Supplier Name' : 'Client Name'}</label>
                   <input className="input" value={invForm.clientName} onChange={e=>setInvForm(f=>({...f,clientName:e.target.value}))}/>
                 </div>
                 <div className="form-group">
@@ -441,13 +483,22 @@ export default function Finance() {
                   </div>
                 </div>
                 <div className="form-row">
-                  <div className="form-group"><label className="form-label">Invoice #</label>
-                    <input className="input" value={invForm.invoiceNo} onChange={e=>setInvForm(f=>({...f,invoiceNo:e.target.value}))}/></div>
-                  <div className="form-group"><label className="form-label">Invoice Date</label>
+                  <div className="form-group">
+                    <label className="form-label">{DOC_TYPE_CONFIG[invForm.docType].numLabel.replace(':','')}</label>
+                    <input className="input" value={invForm.invoiceNo} onChange={e=>setInvForm(f=>({...f,invoiceNo:e.target.value}))}/>
+                  </div>
+                  <div className="form-group"><label className="form-label">{invForm.docType==='po' ? 'PO Date' : invForm.docType==='estimate' ? 'Estimate Date' : 'Invoice Date'}</label>
                     <input className="input" type="date" value={invForm.invoiceDate} onChange={e=>setInvForm(f=>({...f,invoiceDate:e.target.value}))}/></div>
-                  <div className="form-group"><label className="form-label">Due Date</label>
+                  <div className="form-group"><label className="form-label">{invForm.docType==='estimate' ? 'Valid Until' : 'Due Date'}</label>
                     <input className="input" type="date" value={invForm.dueDate} onChange={e=>setInvForm(f=>({...f,dueDate:e.target.value}))}/></div>
                 </div>
+                {/* Buyer's Order No — only for PO type */}
+                {invForm.docType==='po' && (
+                  <div className="form-group">
+                    <label className="form-label">Buyer's Order No. <span style={{fontSize:'.72rem',color:'var(--text-2)'}}>(Client's PO Reference)</span></label>
+                    <input className="input" value={invForm.buyerOrderNo||''} onChange={e=>setInvForm(f=>({...f,buyerOrderNo:e.target.value}))} placeholder="e.g., CLIENT/PO/2026/001"/>
+                  </div>
+                )}
                 
                 {/* Items */}
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10,marginTop:10}}>
@@ -503,6 +554,11 @@ export default function Finance() {
                   <label className="form-label">Payment Terms</label>
                   <input className="input" value={invForm.paymentTerms} onChange={e=>setInvForm(f=>({...f,paymentTerms:e.target.value}))}/>
                 </div>
+                {/* Show Bank Details toggle */}
+                <div style={{display:'flex',alignItems:'center',gap:10,marginTop:6,padding:'8px 10px',background:'var(--bg)',borderRadius:'var(--r-sm)',border:'1px solid var(--border)'}}>
+                  <input type="checkbox" id="showBankChk" checked={!!invForm.showBankDetails} onChange={e=>setInvForm(f=>({...f,showBankDetails:e.target.checked}))} style={{width:16,height:16,cursor:'pointer'}}/>
+                  <label htmlFor="showBankChk" style={{fontSize:'.8rem',cursor:'pointer',color:'var(--text-2)',margin:0}}>Show bank / payment info on printed document</label>
+                </div>
               </div>
             </div>
 
@@ -529,23 +585,26 @@ export default function Finance() {
                     </div>
                   </div>
                   <div style={{textAlign:'right'}}>
-                    <h1 style={{fontSize:'1.5rem',fontWeight:800,color:'#9ca3af',letterSpacing:'.05em',margin:0}}>INVOICE</h1>
-                    <div style={{fontSize:'.82rem',fontWeight:700,color:'#374151',marginTop:4}}>No: {invForm.invoiceNo}</div>
+                    <h1 style={{fontSize:'1.5rem',fontWeight:800,color:'#9ca3af',letterSpacing:'.05em',margin:0}}>{DOC_TYPE_CONFIG[invForm.docType].title}</h1>
+                    <div style={{fontSize:'.82rem',fontWeight:700,color:'#374151',marginTop:4}}>{DOC_TYPE_CONFIG[invForm.docType].numLabel} {invForm.invoiceNo}</div>
+                    {invForm.docType==='po' && invForm.buyerOrderNo && (
+                      <div style={{fontSize:'.72rem',color:'#6b7280',marginTop:2}}>Buyer's Order No: <strong>{invForm.buyerOrderNo}</strong></div>
+                    )}
                   </div>
                 </div>
 
                 {/* Details */}
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:20,marginBottom:24,fontSize:'.78rem'}}>
                   <div>
-                    <div style={{fontWeight:700,color:'#4b5563',textTransform:'uppercase',fontSize:'.65rem',letterSpacing:'.05em',marginBottom:4}}>Billed To:</div>
+                    <div style={{fontWeight:700,color:'#4b5563',textTransform:'uppercase',fontSize:'.65rem',letterSpacing:'.05em',marginBottom:4}}>{DOC_TYPE_CONFIG[invForm.docType].recipientLabel}</div>
                     <div style={{fontWeight:700,fontSize:'.85rem',color:'#111827'}}>{invForm.clientName}</div>
                     <div style={{color:'#4b5563',marginTop:3,whiteSpace:'pre-wrap',maxWidth:240}}>{invForm.address}</div>
                     {invForm.clientGst && <div style={{marginTop:5,fontSize:'.72rem'}}><span style={{color:'#6b7280'}}>GSTIN:</span> <strong>{invForm.clientGst}</strong></div>}
                     {invForm.stateCode && <div style={{marginTop:2,fontSize:'.72rem'}}><span style={{color:'#6b7280'}}>State Code / POS:</span> <strong>{invForm.stateCode}</strong></div>}
                   </div>
                   <div style={{textAlign:'right'}}>
-                    <div style={{marginBottom:4}}><span style={{color:'#6b7280'}}>Date:</span> <strong>{invForm.invoiceDate}</strong></div>
-                    <div><span style={{color:'#6b7280'}}>Due Date:</span> <strong>{invForm.dueDate}</strong></div>
+                    <div style={{marginBottom:4}}><span style={{color:'#6b7280'}}>{invForm.docType==='po' ? 'PO Date:' : invForm.docType==='estimate' ? 'Estimate Date:' : 'Date:'}</span> <strong>{invForm.invoiceDate}</strong></div>
+                    <div><span style={{color:'#6b7280'}}>{invForm.docType==='estimate' ? 'Valid Until:' : 'Due Date:'}</span> <strong>{invForm.dueDate}</strong></div>
                   </div>
                 </div>
 
@@ -576,14 +635,18 @@ export default function Finance() {
 
                 {/* Calculation & Bank Info Row */}
                 <div style={{display:'flex',justifyContent:'space-between',fontSize:'.78rem',marginTop:20,alignItems:'flex-start'}}>
-                  {/* Left Side: Bank Transfer Info */}
-                  <div style={{maxWidth:300,color:'#4b5563',fontSize:'.73rem',lineHeight:1.6}}>
-                    <div style={{fontWeight:700,color:'#374151',marginBottom:6,fontSize:'.78rem',textTransform:'uppercase',letterSpacing:'.02em'}}>Payment Information</div>
-                    <div>Account Name: <strong>{invForm.bankHolder}</strong></div>
-                    <div>Bank Name: <strong>{invForm.bankName}</strong></div>
-                    <div>A/c Number: <strong>{invForm.bankAccNo}</strong></div>
-                    <div>IFSC Code: <strong>{invForm.bankIfsc}</strong></div>
-                  </div>
+                  {/* Left Side: Bank Transfer Info — conditional */}
+                  {invForm.showBankDetails ? (
+                    <div style={{maxWidth:300,color:'#4b5563',fontSize:'.73rem',lineHeight:1.6}}>
+                      <div style={{fontWeight:700,color:'#374151',marginBottom:6,fontSize:'.78rem',textTransform:'uppercase',letterSpacing:'.02em'}}>Payment Information</div>
+                      <div>Account Name: <strong>{invForm.bankHolder}</strong></div>
+                      <div>Bank Name: <strong>{invForm.bankName}</strong></div>
+                      <div>A/c Number: <strong>{invForm.bankAccNo}</strong></div>
+                      <div>IFSC Code: <strong>{invForm.bankIfsc}</strong></div>
+                    </div>
+                  ) : (
+                    <div/>
+                  )}
 
                   {/* Right Side: Totals */}
                   <div style={{width:250}}>
@@ -593,6 +656,7 @@ export default function Finance() {
                       const disc = invForm.discount || 0;
                       const tax = Math.round((sub + mFee - disc) * (invForm.taxRate / 100));
                       const total = sub + mFee - disc + tax;
+                      const totalLabel = invForm.docType==='estimate' ? 'Estimated Total:' : invForm.docType==='po' ? 'PO Value:' : 'Total Due:';
                       return (
                         <>
                           <div style={{display:'flex',justifyContent:'space-between',padding:'4px 0'}}><span style={{color:'#6b7280'}}>Subtotal:</span><strong>₹{sub.toLocaleString('en-IN')}</strong></div>
@@ -600,7 +664,7 @@ export default function Finance() {
                           {disc>0&&<div style={{display:'flex',justifyContent:'space-between',padding:'4px 0',color:'var(--danger)'}}><span style={{color:'#6b7280'}}>Discount:</span><strong>-₹{disc.toLocaleString('en-IN')}</strong></div>}
                           <div style={{display:'flex',justifyContent:'space-between',padding:'4px 0'}}><span style={{color:'#6b7280'}}>GST ({invForm.taxRate}%):</span><strong>₹{tax.toLocaleString('en-IN')}</strong></div>
                           <div style={{display:'flex',justifyContent:'space-between',padding:'8px 0',borderTop:'1.5px solid #d1d5db',fontSize:'.9rem',fontWeight:800,color:'#1e3a8a',marginTop:6}}>
-                            <span>Total Due:</span><span>₹{total.toLocaleString('en-IN')}</span>
+                            <span>{totalLabel}</span><span>₹{total.toLocaleString('en-IN')}</span>
                           </div>
                         </>
                       );
