@@ -95,7 +95,19 @@ export default function Finance() {
     bankAccNo: '50200049281920',
     bankIfsc: 'HDFC0000104',
     paymentTerms: 'Payment due within 15 days of invoice date.',
+    logoUrl: '/vigor-logo-new-01.png',
   });
+
+  const handleLogoUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setInvForm(f => ({ ...f, logoUrl: event.target.result }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const fin = getFinanceSummary();
   const plColor = fin.netPL>=0 ? '#10b981' : '#ef4444';
@@ -406,6 +418,16 @@ export default function Finance() {
                   <label className="form-label">Billing Address</label>
                   <textarea className="textarea" value={invForm.address} onChange={e=>setInvForm(f=>({...f,address:e.target.value}))} style={{minHeight:50}}/>
                 </div>
+                <div className="form-group">
+                  <label className="form-label">Invoice Logo</label>
+                  <div style={{display:'flex',gap:12,alignItems:'center',flexWrap:'wrap'}}>
+                    <img src={invForm.logoUrl} alt="Invoice Logo" style={{height:40,maxWidth:120,objectFit:'contain',border:'1px solid var(--border)',borderRadius:6,padding:4,background:'#fff'}}/>
+                    <input type="file" accept="image/*" onChange={handleLogoUpload} style={{fontSize:'.75rem',maxWidth:180}}/>
+                    {invForm.logoUrl !== '/vigor-logo-new-01.png' && (
+                      <button className="btn btn-secondary btn-sm" onClick={()=>setInvForm(f=>({...f,logoUrl:'/vigor-logo-new-01.png'}))}>Reset to Default</button>
+                    )}
+                  </div>
+                </div>
                 <div className="form-row">
                   <div className="form-group"><label className="form-label">Invoice #</label>
                     <input className="input" value={invForm.invoiceNo} onChange={e=>setInvForm(f=>({...f,invoiceNo:e.target.value}))}/></div>
@@ -485,16 +507,18 @@ export default function Finance() {
                 padding:28,boxShadow:'var(--shadow-sm)',color:'#1f2937',lineHeight:1.4
               }}>
                 {/* Header */}
-                <div style={{display:'flex',justifyContent:'space-between',borderBottom:'2px solid #3b82f6',paddingBottom:14,marginBottom:20}}>
-                  <div>
-                    <h2 style={{color:'#1e3a8a',fontSize:'1.4rem',fontWeight:900,letterSpacing:'-.02em'}}>VIGORLAUNCHPAD</h2>
-                    <div style={{fontSize:'.72rem',color:'#6b7280'}}>Operations &amp; BTL Activation Agency</div>
-                    <div style={{fontSize:'.72rem',color:'#6b7280',marginTop:4}}>Baner Road, Pune, Maharashtra 411045</div>
-                    <div style={{fontSize:'.72rem',color:'#6b7280'}}>GSTIN: 27AABCV8492K1Z9</div>
+                <div style={{display:'flex',justifyContent:'space-between',borderBottom:'2px solid #3b82f6',paddingBottom:14,marginBottom:20,alignItems:'center'}}>
+                  <div style={{display:'flex',alignItems:'center',gap:14}}>
+                    <img src={invForm.logoUrl} alt="Logo" style={{height:45,maxWidth:130,objectFit:'contain'}}/>
+                    <div>
+                      <h2 style={{color:'#1e3a8a',fontSize:'1.2rem',fontWeight:900,letterSpacing:'-.02em',margin:0}}>VIGORLAUNCHPAD</h2>
+                      <div style={{fontSize:'.68rem',color:'#6b7280'}}>Operations &amp; BTL Activation Agency</div>
+                      <div style={{fontSize:'.66rem',color:'#6b7280',marginTop:2}}>Baner Road, Pune, Maharashtra 411045 | GST: 27AABCV8492K1Z9</div>
+                    </div>
                   </div>
                   <div style={{textAlign:'right'}}>
-                    <h1 style={{fontSize:'1.5rem',fontWeight:800,color:'#9ca3af',letterSpacing:'.05em'}}>INVOICE</h1>
-                    <div style={{fontSize:'.82rem',fontWeight:700,color:'#374151',marginTop:6}}>No: {invForm.invoiceNo}</div>
+                    <h1 style={{fontSize:'1.5rem',fontWeight:800,color:'#9ca3af',letterSpacing:'.05em',margin:0}}>INVOICE</h1>
+                    <div style={{fontSize:'.82rem',fontWeight:700,color:'#374151',marginTop:4}}>No: {invForm.invoiceNo}</div>
                   </div>
                 </div>
 
