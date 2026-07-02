@@ -77,7 +77,11 @@ document.addEventListener('copy', e => {
 });
 
 // Block drag-select + drag-copy
+// Block drag-select + drag-copy, but ALLOW draggable elements (Kanban cards)
 document.addEventListener('dragstart', e => {
+  if (e.target.closest && e.target.closest('[draggable="true"]')) {
+    return; // Allow dragging Kanban cards
+  }
   if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
     e.preventDefault();
   }
