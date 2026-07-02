@@ -39,7 +39,7 @@ export default function Leads() {
   const [draggedId, setDraggedId] = useState(null);
   const [csvModal, setCsvModal] = useState(false);
   const [form, setForm] = useState({
-    brandName: '', pocName: '', pocEmail: '', pocPhone: '',
+    brandName: '', pocName: '', pocDesignation: '', pocEmail: '', pocPhone: '',
     category: '', brandType: '', source: '', status: 'new',
     priority: 'medium', dealValue: '', notes: '', nextFollowUp: '', assignedTo: '',
     linkedinProfile: '', instagramHandle: ''
@@ -65,7 +65,7 @@ export default function Leads() {
     if (!canCreate) { toast('You do not have permission to create leads', 'error'); return; }
     setEditId(null);
     setForm({
-      brandName: '', pocName: '', pocEmail: '', pocPhone: '',
+      brandName: '', pocName: '', pocDesignation: '', pocEmail: '', pocPhone: '',
       category: '', brandType: '', source: '', status: 'new',
       priority: 'medium', dealValue: '', notes: '', nextFollowUp: '', assignedTo: '',
       linkedinProfile: '', instagramHandle: ''
@@ -78,6 +78,7 @@ export default function Leads() {
     setEditId(lead.id);
     setForm({
       brandName: lead.brandName || '', pocName: lead.pocName || '',
+      pocDesignation: lead.pocDesignation || '',
       pocEmail: lead.pocEmail || '', pocPhone: lead.pocPhone || '',
       category: lead.category || '', brandType: lead.brandType || '',
       source: lead.source || '', status: lead.status || 'new',
@@ -154,7 +155,7 @@ export default function Leads() {
   function handleExport() {
     if (!canExport) { toast('You do not have permission to export leads', 'error'); return; }
     exportToCSV(filtered, 'vigor_leads.csv', {
-      brandName: 'Brand Name', pocName: 'POC Name', pocEmail: 'Email', pocPhone: 'Phone',
+      brandName: 'Brand Name', pocName: 'POC Name', pocDesignation: 'POC Designation', pocEmail: 'Email', pocPhone: 'Phone',
       category: 'Category', brandType: 'Brand Type', source: 'Source', status: 'Status',
       priority: 'Priority', dealValue: 'Deal Value', nextFollowUp: 'Follow-up Date',
       addedByName: 'Added By'
@@ -166,7 +167,9 @@ export default function Leads() {
     const items = rows.map(r => ({
       id: genId('lead'), createdBy: session?.id, createdAt: new Date().toISOString(),
       addedByName: session?.name || 'Import',
-      brandName: r.brandName || '', pocName: r.pocName || '', pocEmail: r.pocEmail || '',
+      brandName: r.brandName || '', pocName: r.pocName || '',
+      pocDesignation: r.pocDesignation || r.designation || '',
+      pocEmail: r.pocEmail || '',
       pocPhone: r.pocPhone || '', category: r.category || '', brandType: r.brandType || '',
       source: r.source || '', status: r.status || 'new', priority: r.priority || 'medium',
       dealValue: parseFloat(r.dealValue) || 0, notes: r.notes || '',
@@ -390,6 +393,7 @@ export default function Leads() {
                 <>
                   <div className="grid-2" style={{ gap: 12, marginBottom: 16 }}>
                     <div className="detail-field"><label>POC Name</label><span><User size={12} /> {detailLead.pocName || '—'}</span></div>
+                    <div className="detail-field"><label>Designation</label><span><Shield size={12} /> {detailLead.pocDesignation || '—'}</span></div>
                     <div className="detail-field"><label>Phone</label><span><Phone size={12} /> <MaskedContact value={detailLead.pocPhone} type="phone" /></span></div>
                     <div className="detail-field"><label>Email</label><span><Mail size={12} /> <MaskedContact value={detailLead.pocEmail} type="email" /></span></div>
                     <div className="detail-field"><label>Category</label><span><Tag size={12} /> {detailLead.category || '—'}</span></div>
@@ -462,14 +466,18 @@ export default function Leads() {
               <button className="modal-close" onClick={() => setModal(false)}><X size={16} /></button>
             </div>
             <div className="modal-body">
+              <div className="form-group">
+                <label className="form-label">Brand Name <span className="req">*</span></label>
+                <input className="input" placeholder="e.g. Glowtone Cosmetics" value={form.brandName} onChange={e => setForm({ ...form, brandName: e.target.value })} />
+              </div>
               <div className="form-row">
-                <div className="form-group">
-                  <label className="form-label">Brand Name <span className="req">*</span></label>
-                  <input className="input" placeholder="e.g. Glowtone Cosmetics" value={form.brandName} onChange={e => setForm({ ...form, brandName: e.target.value })} />
-                </div>
                 <div className="form-group">
                   <label className="form-label">POC Name</label>
                   <input className="input" placeholder="Point of contact" value={form.pocName} onChange={e => setForm({ ...form, pocName: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Designation</label>
+                  <input className="input" placeholder="e.g. Brand Manager" value={form.pocDesignation} onChange={e => setForm({ ...form, pocDesignation: e.target.value })} />
                 </div>
               </div>
               <div className="form-row">
