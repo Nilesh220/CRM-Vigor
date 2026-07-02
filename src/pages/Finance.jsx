@@ -89,6 +89,12 @@ export default function Finance() {
     ],
     taxRate: 18,
     discount: 5000,
+    managementFeeRate: 10,
+    bankHolder: 'VigorLaunchpad Private Limited',
+    bankName: 'HDFC Bank',
+    bankAccNo: '50200049281920',
+    bankIfsc: 'HDFC0000104',
+    paymentTerms: 'Payment due within 15 days of invoice date.',
   });
 
   const fin = getFinanceSummary();
@@ -438,10 +444,30 @@ export default function Finance() {
                 ))}
 
                 <div className="form-row" style={{marginTop:12}}>
+                  <div className="form-group"><label className="form-label">Management Fee (%)</label>
+                    <input className="input" type="number" value={invForm.managementFeeRate} onChange={e=>setInvForm(f=>({...f,managementFeeRate:parseInt(e.target.value)||0}))}/></div>
                   <div className="form-group"><label className="form-label">GST / Tax (%)</label>
                     <input className="input" type="number" value={invForm.taxRate} onChange={e=>setInvForm(f=>({...f,taxRate:parseInt(e.target.value)||0}))}/></div>
                   <div className="form-group"><label className="form-label">Discount (₹)</label>
                     <input className="input" type="number" value={invForm.discount} onChange={e=>setInvForm(f=>({...f,discount:parseFloat(e.target.value)||0}))}/></div>
+                </div>
+
+                <div style={{fontWeight:700,fontSize:'.82rem',marginTop:16,marginBottom:8,borderTop:'1px solid var(--border)',paddingTop:14}}>Bank Details &amp; Payment Terms</div>
+                <div className="form-group">
+                  <label className="form-label">Account Name</label>
+                  <input className="input" value={invForm.bankHolder} onChange={e=>setInvForm(f=>({...f,bankHolder:e.target.value}))}/>
+                </div>
+                <div className="form-row">
+                  <div className="form-group"><label className="form-label">Bank Name</label>
+                    <input className="input" value={invForm.bankName} onChange={e=>setInvForm(f=>({...f,bankName:e.target.value}))}/></div>
+                  <div className="form-group"><label className="form-label">Account #</label>
+                    <input className="input" value={invForm.bankAccNo} onChange={e=>setInvForm(f=>({...f,bankAccNo:e.target.value}))}/></div>
+                  <div className="form-group"><label className="form-label">IFSC Code</label>
+                    <input className="input" value={invForm.bankIfsc} onChange={e=>setInvForm(f=>({...f,bankIfsc:e.target.value}))}/></div>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Payment Terms</label>
+                  <input className="input" value={invForm.paymentTerms} onChange={e=>setInvForm(f=>({...f,paymentTerms:e.target.value}))}/>
                 </div>
               </div>
             </div>
@@ -462,7 +488,7 @@ export default function Finance() {
                 <div style={{display:'flex',justifyContent:'space-between',borderBottom:'2px solid #3b82f6',paddingBottom:14,marginBottom:20}}>
                   <div>
                     <h2 style={{color:'#1e3a8a',fontSize:'1.4rem',fontWeight:900,letterSpacing:'-.02em'}}>VIGORLAUNCHPAD</h2>
-                    <div style={{fontSize:'.72rem',color:'#6b7280'}}>Operations & BTL Activation Agency</div>
+                    <div style={{fontSize:'.72rem',color:'#6b7280'}}>Operations &amp; BTL Activation Agency</div>
                     <div style={{fontSize:'.72rem',color:'#6b7280',marginTop:4}}>Baner Road, Pune, Maharashtra 411045</div>
                     <div style={{fontSize:'.72rem',color:'#6b7280'}}>GSTIN: 27AABCV8492K1Z9</div>
                   </div>
@@ -510,17 +536,29 @@ export default function Finance() {
                   </tbody>
                 </table>
 
-                {/* Calculation */}
-                <div style={{display:'flex',justifyContent:'flex-end',fontSize:'.78rem'}}>
-                  <div style={{width:240}}>
+                {/* Calculation & Bank Info Row */}
+                <div style={{display:'flex',justifyContent:'space-between',fontSize:'.78rem',marginTop:20,alignItems:'flex-start'}}>
+                  {/* Left Side: Bank Transfer Info */}
+                  <div style={{maxWidth:300,color:'#4b5563',fontSize:'.73rem',lineHeight:1.6}}>
+                    <div style={{fontWeight:700,color:'#374151',marginBottom:6,fontSize:'.78rem',textTransform:'uppercase',letterSpacing:'.02em'}}>Payment Information</div>
+                    <div>Account Name: <strong>{invForm.bankHolder}</strong></div>
+                    <div>Bank Name: <strong>{invForm.bankName}</strong></div>
+                    <div>A/c Number: <strong>{invForm.bankAccNo}</strong></div>
+                    <div>IFSC Code: <strong>{invForm.bankIfsc}</strong></div>
+                  </div>
+
+                  {/* Right Side: Totals */}
+                  <div style={{width:250}}>
                     {(() => {
                       const sub = invForm.items.reduce((s,x)=>s+(x.qty*x.rate),0);
+                      const mFee = Math.round(sub * ((invForm.managementFeeRate || 0) / 100));
                       const disc = invForm.discount || 0;
-                      const tax = Math.round((sub - disc) * (invForm.taxRate / 100));
-                      const total = sub - disc + tax;
+                      const tax = Math.round((sub + mFee - disc) * (invForm.taxRate / 100));
+                      const total = sub + mFee - disc + tax;
                       return (
                         <>
                           <div style={{display:'flex',justifyContent:'space-between',padding:'4px 0'}}><span style={{color:'#6b7280'}}>Subtotal:</span><strong>₹{sub.toLocaleString('en-IN')}</strong></div>
+                          {mFee>0&&<div style={{display:'flex',justifyContent:'space-between',padding:'4px 0'}}><span style={{color:'#6b7280'}}>Management Fee ({invForm.managementFeeRate}%):</span><strong>₹{mFee.toLocaleString('en-IN')}</strong></div>}
                           {disc>0&&<div style={{display:'flex',justifyContent:'space-between',padding:'4px 0',color:'var(--danger)'}}><span style={{color:'#6b7280'}}>Discount:</span><strong>-₹{disc.toLocaleString('en-IN')}</strong></div>}
                           <div style={{display:'flex',justifyContent:'space-between',padding:'4px 0'}}><span style={{color:'#6b7280'}}>GST ({invForm.taxRate}%):</span><strong>₹{tax.toLocaleString('en-IN')}</strong></div>
                           <div style={{display:'flex',justifyContent:'space-between',padding:'8px 0',borderTop:'1.5px solid #d1d5db',fontSize:'.9rem',fontWeight:800,color:'#1e3a8a',marginTop:6}}>
@@ -533,9 +571,9 @@ export default function Finance() {
                 </div>
 
                 {/* Footer terms */}
-                <div style={{marginTop:40,borderTop:'1px solid #e5e7eb',paddingTop:14,fontSize:'.68rem',color:'#9ca3af',textAlign:'center'}}>
-                  Thank you for your business. Terms: Payment due within 15 days of invoice date. 
-                  For bank transfer: HDFC Bank A/c 50200049281920 (IFSC HDFC0000104).
+                <div style={{marginTop:30,borderTop:'1px solid #e5e7eb',paddingTop:14,fontSize:'.7rem',color:'#6b7280',textAlign:'center'}}>
+                  <div style={{fontWeight:700,marginBottom:3,textTransform:'uppercase',letterSpacing:'.02em'}}>Terms &amp; Conditions</div>
+                  <div>{invForm.paymentTerms}</div>
                 </div>
               </div>
             </div>
