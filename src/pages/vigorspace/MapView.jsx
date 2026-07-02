@@ -10,6 +10,7 @@ import {
 
 /* ── constants ─────────────────────────────────────────────── */
 const LS_CITIES = 'vl_map_custom_cities';
+const LS_STATES = 'vl_map_custom_states';
 
 const ZONE_META = {
   north: {
@@ -59,9 +60,14 @@ export default function MapView() {
   const [customCities, setCustomCities] = useState(() => {
     try { return JSON.parse(localStorage.getItem(LS_CITIES) || '{}'); } catch { return {}; }
   });
+  const [customStates, setCustomStates] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(LS_STATES) || '{}'); } catch { return {}; }
+  });
   const [addCityModal,    setAddCityModal]    = useState(false);
+  const [addStateModal,   setAddStateModal]   = useState(false);
   const [addCollegeModal, setAddCollegeModal] = useState(false);
   const [newCityName,     setNewCityName]     = useState('');
+  const [newStateName,    setNewStateName]    = useState('');
   const [newCollegeName,  setNewCollegeName]  = useState('');
 
   useEffect(() => { CollegeDB.syncFromDB().then(r => setColleges(r)); }, []);
@@ -97,6 +103,20 @@ export default function MapView() {
     logActivity('Added', 'College', name, `${selCity}, ${selState}`);
     setColleges(CollegeDB.all()); setNewCollegeName(''); setAddCollegeModal(false); toast(`${name} added!`, 'success');
   }
+  function handleAddState() {
+    const name = newStateName.trim();
+    if (!name || !selZone) { toast('Enter a state name', 'warning'); return; }
+    const baseStates = ZONES[selZone]?.states || [];
+    const addedStates = customStates[selZone] || [];
+    const existing = [...new Set([...baseStates, ...addedStates])];
+    if (existing.includes(name)) { toast('State already exists', 'info'); return; }
+    const updated = { ...customStates, [selZone]: [...addedStates, name] };
+    setCustomStates(updated);
+    localStorage.setItem(LS_STATES, JSON.stringify(updated));
+    setNewStateName('');
+    setAddStateModal(false);
+    toast(`${name} added to ${ZONES[selZone].label}!`, 'success');
+  }
   function goBack() {
     setSearch('');
     if (level === 4) setSelCity(null);
@@ -104,11 +124,14 @@ export default function MapView() {
     else if (level === 2) setSelZone(null);
   }
 
-  const statesInZone = selZone ? ZONES[selZone].states.filter(s => !search || s.toLowerCase().includes(search.toLowerCase())) : [];
+  const baseStates = selZone ? ZONES[selZone].states : [];
+  const addedStates = selZone ? (customStates[selZone] || []) : [];
+  const allStatesInZone = [...new Set([...baseStates, ...addedStates])].sort();
+  const statesInZone = selZone ? allStatesInZone.filter(s => !search || s.toLowerCase().includes(search.toLowerCase())) : [];
   const cities = selState ? citiesForState(selState).filter(c => !search || c.toLowerCase().includes(search.toLowerCase())) : [];
   const cityColleges = selCity ? collegesInCity(selCity) : [];
   const totalColleges = colleges.length;
-  const totalStates   = Object.values(ZONES).flatMap(z => z.states).length;
+  const totalStates   = Object.values(ZONES).flatMap(z => z.states).length + Object.values(customStates).flat().length;
 
   /* ─────────────────────────────────────────────────────────── */
   return (
@@ -250,12 +273,20 @@ export default function MapView() {
               <div>
                 <div style={{ fontSize: '1.6rem', marginBottom: 4 }}>{zoneMeta?.emoji}</div>
                 <h2 style={{ fontWeight: 800, fontSize: '1.2rem', margin: '0 0 4px', letterSpacing: '-.01em' }}>{zoneData?.label}</h2>
-                <div style={{ fontSize: '.78rem', opacity: .8 }}>{ZONES[selZone].states.length} states &bull; {collegesInZone(selZone).length} colleges</div>
+                <div style={{ fontSize: '.78rem', opacity: .8 }}>{statesInZone.length} states &bull; {collegesInZone(selZone).length} colleges</div>
               </div>
-              <button className="btn" onClick={goBack}
-                style={{ background: 'rgba(255,255,255,.2)', border: '1px solid rgba(255,255,255,.3)', color: '#fff', backdropFilter: 'blur(6px)', borderRadius: 10, display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', fontSize: '.82rem', fontWeight: 600 }}>
-                <ChevronLeft size={13} /> Back
-              </button>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn" onClick={goBack}
+                  style={{ background: 'rgba(255,255,255,.2)', border: '1px solid rgba(255,255,255,.3)', color: '#fff', backdropFilter: 'blur(6px)', borderRadius: 10, display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', fontSize: '.82rem', fontWeight: 600 }}>
+                  <ChevronLeft size={13} /> Back
+                </button>
+                {canEdit && (
+                  <button className="btn" onClick={() => setAddStateModal(true)}
+                    style={{ background: 'rgba(255,255,255,.3)', border: '1px solid rgba(255,255,255,.4)', color: '#fff', backdropFilter: 'blur(6px)', borderRadius: 10, display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', fontSize: '.82rem', fontWeight: 600 }}>
+                    <Plus size={13} /> Add State
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
@@ -302,6 +333,18 @@ export default function MapView() {
                 </div>
               );
             })}
+            {/* Add State ghost card */}
+            {canEdit && (
+              <div onClick={() => setAddStateModal(true)}
+                style={{ border: '2px dashed var(--border-2)', borderRadius: 16, padding: '16px 16px 14px', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 110, gap: 8, color: 'var(--text-3)', transition: 'all .18s' }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = zoneColor; e.currentTarget.style.color = zoneColor; e.currentTarget.style.background = `${zoneColor}08`; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-2)'; e.currentTarget.style.color = 'var(--text-3)'; e.currentTarget.style.background = 'transparent'; }}>
+                <div style={{ width: 36, height: 36, borderRadius: '50%', border: '2px dashed currentColor', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Plus size={16} />
+                </div>
+                <span style={{ fontSize: '.78rem', fontWeight: 600 }}>Add State</span>
+              </div>
+            )}
           </div>
         </>
       )}
@@ -487,6 +530,29 @@ export default function MapView() {
       {/* ══════════════════════════════════════════════════════════ */}
       {/* MODALS                                                     */}
       {/* ══════════════════════════════════════════════════════════ */}
+      {addStateModal && (
+        <div className="overlay" onClick={() => setAddStateModal(false)}>
+          <div className="modal" style={{ maxWidth: 380 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <span className="modal-title"><MapPin size={14} style={{ marginRight: 7 }} />Add State &mdash; {zoneData?.label}</span>
+              <button className="modal-close" onClick={() => setAddStateModal(false)}><X size={14} /></button>
+            </div>
+            <div className="modal-body">
+              <div className="form-group">
+                <label className="form-label">State Name <span className="req">*</span></label>
+                <input className="input" placeholder="e.g. Maharashtra" value={newStateName}
+                  onChange={e => setNewStateName(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleAddState()} autoFocus />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setAddStateModal(false)}>Cancel</button>
+              <button className="btn btn-primary" onClick={handleAddState}>Add State</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {addCityModal && (
         <div className="overlay" onClick={() => setAddCityModal(false)}>
           <div className="modal" style={{ maxWidth: 380 }} onClick={e => e.stopPropagation()}>
