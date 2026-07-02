@@ -552,7 +552,10 @@ export function getZoneBadgeClass(zone) {
   const map = { north: 'badge-zone-north', south: 'badge-zone-south', east: 'badge-zone-east', west: 'badge-zone-west', central: 'badge-zone-central' };
   return map[zone] || 'badge-gray';
 }
-export function getZoneColor(zone) { return ZONES[zone]?.color || '#9ca3af'; }
+export function getZoneColor(zone) {
+  if (zone === 'pan_india') return '#6366f1';
+  return ZONES[zone]?.color || '#9ca3af';
+}
 
 // CSV export helper
 export function exportToCSV(rows, filename, colMap) {

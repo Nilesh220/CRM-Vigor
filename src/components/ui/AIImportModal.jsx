@@ -5,6 +5,19 @@ import { genId, logActivity, CollegeDB, InfluencerDB, VendorDB, ZONES } from '..
 import { parseWithGeminiAI } from '../../lib/gemini';
 import { Sparkles, Loader2, Check, AlertCircle } from 'lucide-react';
 
+const CITY_TO_ZONE = {
+  // South
+  chennai: 'south', bangalore: 'south', bengaluru: 'south', hyderabad: 'south', cochin: 'south', kochi: 'south', trivandrum: 'south', coimbatore: 'south', vizag: 'south', madurai: 'south', mysore: 'south',
+  // North
+  delhi: 'north', noida: 'north', gurgaon: 'north', gurugram: 'north', faridabad: 'north', ghaziabad: 'north', lucknow: 'north', kanpur: 'north', jaipur: 'north', chandigarh: 'north', mohali: 'north', ludhiana: 'north', amritsar: 'north', dehradun: 'north', jammu: 'north', srinagar: 'north', agra: 'north', varanasi: 'north',
+  // West
+  mumbai: 'west', pune: 'west', ahmedabad: 'west', surat: 'west', vadodara: 'west', rajkot: 'west', nagpur: 'west', nashik: 'west', panaji: 'west', goa: 'west', udaipur: 'west', jodhpur: 'west',
+  // East
+  kolkata: 'east', patna: 'east', ranchi: 'east', bhubaneswar: 'east', guwahati: 'east', shillong: 'east', imphal: 'east', siliguri: 'east', cuttack: 'east',
+  // Central
+  bhopal: 'central', indore: 'central', raipur: 'central', bilaspur: 'central', jabalpur: 'central', gwalior: 'central'
+};
+
 const PROMPTS = {
   influencer: `You are a data extraction assistant for a marketing agency CRM.
 Extract influencer data from the following raw text. Return ONLY a valid JSON array.
@@ -120,15 +133,33 @@ export default function AIImportModal({ open, onClose, entityType, onImported })
       const shortPrefix = entityType.slice(0, 3);
 
       const records = parsedData.map((item, index) => {
-        // Find zone based on state/city matching if possible
+        // Find zone based on state/city mapping
         let zone = item.zone || '';
-        if (!zone && (item.state || item.city)) {
-          const target = (item.state || item.city).toLowerCase();
-          Object.entries(ZONES).forEach(([key, val]) => {
-            if (val.states.some(s => s.toLowerCase().includes(target) || target.includes(s.toLowerCase()))) {
-              zone = key;
-            }
+        if (zone) {
+          zone = zone.toLowerCase().replace(/[^a-z_]/g, '');
+          if (zone.includes('north')) zone = 'north';
+          else if (zone.includes('south')) zone = 'south';
+          else if (zone.includes('east')) zone = 'east';
+          else if (zone.includes('west')) zone = 'west';
+          else if (zone.includes('central')) zone = 'central';
+          else if (zone.includes('pan')) zone = 'pan_india';
+        }
+        if (!zone && item.city) {
+          const cityLower = item.city.toLowerCase().trim();
+          zone = CITY_TO_ZONE[cityLower] || '';
+        }
+        if (!zone && item.state) {
+          const stateLower = item.state.toLowerCase().trim();
+          Object.keys(CITY_TO_ZONE).forEach(c => {
+            if (stateLower.includes(c)) zone = CITY_TO_ZONE[c];
           });
+          if (!zone) {
+            Object.entries(ZONES).forEach(([key, val]) => {
+              if (val.states.some(s => s.toLowerCase().includes(stateLower) || stateLower.includes(s.toLowerCase()))) {
+                zone = key;
+              }
+            });
+          }
         }
         if (!zone) zone = 'west'; // fallback
 

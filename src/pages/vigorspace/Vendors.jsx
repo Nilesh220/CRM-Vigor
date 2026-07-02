@@ -152,7 +152,7 @@ export default function Vendors() {
                 {search&&<button onClick={()=>{setSearch('');setPage(1);}}><X size={12}/></button>}
               </div>
               {[
-                {val:filterZone,set:setFilterZone,opts:Object.values(ZONES).map(z=>({v:z.key,l:z.label})),pl:'All Zones'},
+                {val:filterZone,set:setFilterZone,opts:[...Object.values(ZONES).map(z=>({v:z.key,l:z.label})), {v:'pan_india',l:'Pan India'}],pl:'All Zones'},
                 {val:filterStatus,set:setFilterStatus,opts:STATUS_OPTS.map(s=>({v:s,l:s})),pl:'All Status'},
                 {val:filterCat,set:setFilterCat,opts:CATS.map(c=>({v:c,l:c})),pl:'All Categories'},
               ].map((f,i)=>(
@@ -172,7 +172,7 @@ export default function Vendors() {
                 {rows.length ? rows.map(v=>(
                   <tr key={v.id}>
                     <td><div className="cell-primary">{v.name}</div><div className="cell-sub">{v.companyName}</div></td>
-                    <td>{v.zone&&<span style={{fontSize:'.7rem',fontWeight:700,color:getZoneColor(v.zone),background:`${getZoneColor(v.zone)}18`,padding:'2px 8px',borderRadius:'99px'}}>{ZONES[v.zone]?.label.replace(' Zone','')}</span>}</td>
+                    <td>{v.zone&&<span style={{fontSize:'.7rem',fontWeight:700,color:getZoneColor(v.zone),background:`${getZoneColor(v.zone)}18`,padding:'2px 8px',borderRadius:'99px'}}>{v.zone === 'pan_india' ? 'Pan India' : (ZONES[v.zone]?.label.replace(' Zone','') || v.zone)}</span>}</td>
                     <td><div style={{fontSize:'.82rem'}}>{v.region}</div><div className="cell-sub">{v.city}</div></td>
                     <td>{v.category?<span className="chip">{v.category}</span>:'—'}</td>
                     <td style={{fontSize:'.8rem'}}><MaskedContact value={v.contactNumber} type="phone" /></td>
@@ -220,7 +220,9 @@ export default function Vendors() {
           ))}
           <div className="form-group"><label className="form-label">Zone</label>
             <select className="select" value={form.zone} onChange={e=>setForm(f=>({...f,zone:e.target.value}))}>
-              <option value="">Select Zone</option>{Object.values(ZONES).map(z=><option key={z.key} value={z.key}>{z.label}</option>)}
+              <option value="">Select Zone</option>
+              {Object.values(ZONES).map(z=><option key={z.key} value={z.key}>{z.label}</option>)}
+              <option value="pan_india">Pan India</option>
             </select></div>
         </div>
         <div className="form-row">
@@ -260,7 +262,7 @@ export default function Vendors() {
         footer={<><button className="btn btn-secondary" onClick={()=>setViewModal(false)}>Close</button><button className="btn btn-primary" onClick={()=>{setViewModal(false);openEdit(viewing);}}>Edit</button></>}>
         <div className="grid-2">
           <div>
-            {[['Company',viewing.companyName],['Email',viewing.email],['Phone',viewing.contactNumber],['City',viewing.city],['Region',viewing.region],['Zone',ZONES[viewing.zone]?.label],['Category',viewing.category],['Status',viewing.status]].map(([k,v])=>v?<div key={k} className="info-row"><strong style={{width:80,color:'var(--text-3)',fontWeight:500,flexShrink:0}}>{k}</strong>{k === 'Email' ? <MaskedContact value={v} type="email" /> : k === 'Phone' ? <MaskedContact value={v} type="phone" /> : v}</div>:null)}
+            {[['Company',viewing.companyName],['Email',viewing.email],['Phone',viewing.contactNumber],['City',viewing.city],['Region',viewing.region],['Zone',viewing.zone === 'pan_india' ? 'Pan India' : ZONES[viewing.zone]?.label],['Category',viewing.category],['Status',viewing.status]].map(([k,v])=>v?<div key={k} className="info-row"><strong style={{width:80,color:'var(--text-3)',fontWeight:500,flexShrink:0}}>{k}</strong>{k === 'Email' ? <MaskedContact value={v} type="email" /> : k === 'Phone' ? <MaskedContact value={v} type="phone" /> : v}</div>:null)}
             {/* Social/Web Links */}
             <div style={{display:'flex',gap:8,marginTop:10,flexWrap:'wrap'}}>
               {viewing.linkedinProfile && (

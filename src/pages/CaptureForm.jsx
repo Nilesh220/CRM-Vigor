@@ -34,7 +34,7 @@ function emptyForm() {
   return {
     name: '', phone: '', email: '', city: '', message: '',
     // Vendor
-    companyName: '', vendorCategory: '',
+    companyName: '', vendorCategory: '', zone: '',
     manPower: '', promoterCost: '', fabrication: '',
     schoolPermission: '', collegePermission: '',
     // Creator
@@ -69,15 +69,16 @@ export default function CaptureForm() {
 
     try {
       if (leadType === 'vendor') {
-        await supabase.from('vlcrm_vendors').insert({
+        const { error: insertErr } = await supabase.from('vlcrm_vendors').insert({
           id: genId('ven'),
           name: form.name,
           company_name: form.companyName || form.name,
           contact_number: form.phone,
           email: form.email || null,
           city: form.city || null,
+          zone: form.zone || null,
           category: form.vendorCategory || null,
-          man_power: form.manPower || null,
+          man_power: (form.manPower === 'Yes' || form.manPower === 'On Request') ? 1 : 0,
           promoter_cost: form.promoterCost || null,
           fabrication: form.fabrication || null,
           school_permission: form.schoolPermission === 'Yes',
@@ -86,12 +87,19 @@ export default function CaptureForm() {
           comment: [
             form.message || '',
             `Submitted via: ${sourceParam}`,
+            `Services: ${form.vendorCategory || 'None'}`,
+            `Zone Selection: ${form.zone || 'None'}`,
+            `Fabrication: ${form.fabrication || 'No'}`,
+            `Manpower Option Selected: ${form.manPower || 'No'}`,
+            `School Permission: ${form.schoolPermission || 'No'}`,
+            `College Permission: ${form.collegePermission || 'No'}`,
           ].filter(Boolean).join('\n'),
           created_at: new Date().toISOString(),
         });
+        if (insertErr) throw insertErr;
 
       } else if (leadType === 'creator') {
-        await supabase.from('vlcrm_influencers').insert({
+        const { error: insertErr } = await supabase.from('vlcrm_influencers').insert({
           id: genId('inf'),
           name: form.name,
           instagram_link: form.instagramLink || null,
@@ -107,10 +115,11 @@ export default function CaptureForm() {
           notes: [form.message || '', `Submitted via: ${sourceParam}`].filter(Boolean).join('\n'),
           created_at: new Date().toISOString(),
         });
+        if (insertErr) throw insertErr;
 
       } else {
         // College & POC → leads table
-        await supabase.from('vlcrm_leads').insert({
+        const { error: insertErr } = await supabase.from('vlcrm_leads').insert({
           id: genId('lead'),
           brand_name: form.pocCollegeName || form.name,
           poc_name: form.name,
@@ -130,6 +139,7 @@ export default function CaptureForm() {
           ].filter(Boolean).join('\n'),
           created_at: new Date().toISOString(),
         });
+        if (insertErr) throw insertErr;
       }
       setSubmitted(true);
     } catch (err) {
@@ -281,6 +291,19 @@ export default function CaptureForm() {
               <select value={form.vendorCategory} onChange={set('vendorCategory')}>
                 <option value="">Select category…</option>
                 {VENDOR_CATS.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+
+            <div className="capture-field">
+              <label>Zone / Coverage Area</label>
+              <select value={form.zone} onChange={set('zone')}>
+                <option value="">Select zone…</option>
+                <option value="north">North Zone</option>
+                <option value="south">South Zone</option>
+                <option value="east">East Zone</option>
+                <option value="west">West Zone</option>
+                <option value="central">Central Zone</option>
+                <option value="pan_india">Pan India</option>
               </select>
             </div>
 
