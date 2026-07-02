@@ -860,8 +860,8 @@ Procedure for verifying influencer content drafts before going live to ensure br
 // Granular permissions helper
 export function hasPermission(user, entity, action) {
   if (!user) return false;
-  // Admin and founder roles have permanent, full access to everything
-  if (['admin', 'founder'].includes(user.role)) return true;
+  // Admin, super admin and founder roles have permanent, full access to everything
+  if (['super_admin', 'admin', 'founder'].includes(user.role)) return true;
 
   // Check if explicit permissions object is defined
   const userPerms = user.permissions?.[entity];
@@ -877,12 +877,14 @@ export function hasPermission(user, entity, action) {
 
   // View is generally allowed unless restricted. Delete is restricted.
   if (action === 'delete') {
+    if (entity === 'leads') return ['operations'].includes(user.role);
     return ['operations', 'hr', 'finance'].includes(user.role);
   }
 
   if (action === 'edit' || action === 'create') {
     if (entity === 'finance') return ['finance', 'operations'].includes(user.role);
-    if (entity === 'users') return ['hr', 'admin'].includes(user.role);
+    if (entity === 'users') return ['hr', 'admin', 'super_admin'].includes(user.role);
+    if (entity === 'leads') return !['vigorspace', 'influencer'].includes(user.role);
     return true; // Default allow create/edit for operations/pms/etc.
   }
 
