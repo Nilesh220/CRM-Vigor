@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useSession, useToast } from '../contexts/AppContext';
 import Modal from '../components/ui/Modal';
 import {
-  LeaveDB, AnnouncementDB, CompOffDB, getAllUsers, genId, logActivity, formatDate
+  LeaveDB, AnnouncementDB, CompOffDB, getAllUsers, genId, logActivity, formatDate, getUserName
 } from '../lib/data';
 import {
   CalendarDays, Plus, Trash2, Check, X, AlertCircle, FileText, Megaphone,
@@ -152,8 +152,7 @@ export default function Leaves() {
 
     await LeaveDB.update(id, {
       status: action,
-      approvedBy: session?.id,
-      approvedByName: session?.name
+      approvedBy: session?.id
     });
 
     // If it's a comp_off leave request and got approved, use the oldest active comp off credit
@@ -435,7 +434,7 @@ export default function Leaves() {
                             <td style={{ fontSize: '.8rem' }}>{formatDate(l.startDate)} to {formatDate(l.endDate)}</td>
                             <td style={{ fontSize: '.8rem', color: 'var(--text-2)' }}>{l.reason || '—'}</td>
                             <td><span className={`badge ${LEAVE_STATUS_COLORS[l.status]}`}>{l.status.toUpperCase()}</span></td>
-                            <td style={{ fontSize: '.76rem', color: 'var(--text-3)' }}>{l.approvedByName || '—'}</td>
+                            <td style={{ fontSize: '.76rem', color: 'var(--text-3)' }}>{getUserName(l.approvedBy) || '—'}</td>
                           </tr>
                         ))
                       )}
