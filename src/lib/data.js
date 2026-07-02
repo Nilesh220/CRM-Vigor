@@ -17,11 +17,25 @@ export const DEMO_USERS = [
 ];
 
 export const ROLE_LABELS = {
+  super_admin: 'Super Admin',
   admin: 'Administrator', founder: 'Founder', hr: 'HR Manager', finance: 'Finance Team',
   vigorspace: 'VigorSpace Team', influencer: 'Influencer Team', operations: 'Operations Manager', pm: 'Project Manager',
 };
 
+export const ROLE_RANK = {
+  super_admin: 100,
+  admin: 90,
+  founder: 70,
+  hr: 70,
+  operations: 70,
+  pm: 60,
+  finance: 50,
+  vigorspace: 30,
+  influencer: 30,
+};
+
 export const ROLE_NAV = {
+  super_admin: ['dashboard', 'leads', 'clients', 'campaigns', 'events', 'vigorspace', 'colleges', 'vendors', 'college_influencers', 'influencers', 'tasks', 'finance', 'reports', 'users', 'leaves', 'okrs', 'timeline', 'sops', 'attendance'],
   admin:      ['dashboard', 'leads', 'clients', 'campaigns', 'events', 'vigorspace', 'colleges', 'vendors', 'college_influencers', 'influencers', 'tasks', 'finance', 'reports', 'users', 'leaves', 'okrs', 'timeline', 'sops', 'attendance'],
   founder:    ['dashboard', 'leads', 'clients', 'campaigns', 'events', 'vigorspace', 'colleges', 'vendors', 'college_influencers', 'influencers', 'tasks', 'finance', 'reports', 'users', 'leaves', 'okrs', 'timeline', 'sops', 'attendance'],
   hr:         ['dashboard', 'users', 'finance', 'tasks', 'reports', 'leaves', 'okrs', 'sops', 'attendance'],

@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import Modal from '../components/ui/Modal';
 import { useToast, useSession } from '../contexts/AppContext';
-import { getAllUsers, saveUsers, ROLE_LABELS, ROLE_NAV, genId, logActivity, upsertUserToDB, deleteUserFromDB, syncUsersFromDB, ZONES, getZoneBadgeClass, getUserZones, PayslipDB } from '../lib/data';
-import { Users as UsersIcon, Plus, Search, Shield, UserX, UserCheck, Key, Edit2, Trash2, CheckSquare, Printer, Coins, Download, Eye } from 'lucide-react';
+import { getAllUsers, saveUsers, ROLE_LABELS, ROLE_RANK, ROLE_NAV, genId, logActivity, upsertUserToDB, deleteUserFromDB, syncUsersFromDB, ZONES, getZoneBadgeClass, getUserZones, PayslipDB } from '../lib/data';
+import { Users as UsersIcon, Plus, Search, Shield, UserX, UserCheck, Key, Edit2, Trash2, CheckSquare, Printer, Coins, Download, Eye, Lock } from 'lucide-react';
 
-const ROLES = ['admin', 'founder', 'hr', 'finance', 'vigorspace', 'influencer', 'operations', 'pm'];
+const ROLES = ['super_admin', 'admin', 'founder', 'hr', 'finance', 'vigorspace', 'influencer', 'operations', 'pm'];
 const ROLE_COLORS = {
+  super_admin: 'badge-purple',
   admin:      'badge-red',
   founder:    'badge-purple',
   hr:         'badge-blue',
@@ -120,33 +121,64 @@ export default function Users() {
       return;
     }
     const all = getAllUsers();
+    const curUserRank = ROLE_RANK[session?.role] || 0;
+
     if (editId) {
       const idx = all.findIndex(u => u.id === editId);
       if (idx > -1) {
+        const targetUser = all[idx];
+        
+        // If editing self, prevent changes to role, exportAccess, allowedNav, and permissions
+        let finalRole = form.role;
+        let finalAllowedNav = form.allowedNav;
+        let finalExportAccess = form.exportAccess;
+        let finalPermissions = form.permissions || {};
+
+        if (targetUser.id === session?.id) {
+          finalRole = targetUser.role;
+          finalAllowedNav = targetUser.allowedNav;
+          finalExportAccess = targetUser.exportAccess;
+          finalPermissions = targetUser.permissions || {};
+        } else {
+          // If editing someone else, check hierarchy rank
+          if (curUserRank <= (ROLE_RANK[targetUser.role] || 0)) {
+            toast('You do not have permission to edit this user rank.', 'error');
+            return;
+          }
+          if (curUserRank <= (ROLE_RANK[form.role] || 0)) {
+            toast('You cannot assign a role rank equal to or higher than your own.', 'error');
+            return;
+          }
+        }
+
         all[idx] = {
           ...all[idx],
           name: form.name,
           email: form.email,
-          role: form.role,
+          role: finalRole,
           dept: form.dept,
           zones: form.zones || [],
           zone: (form.zones && form.zones[0]) || null, // keep legacy for compat
-          exportAccess: form.exportAccess,
-          allowedNav: form.allowedNav,
-          permissions: form.permissions || {},
+          exportAccess: finalExportAccess,
+          allowedNav: finalAllowedNav,
+          permissions: finalPermissions,
           mobile: form.mobile||'', pan: form.pan||'', aadhar: form.aadhar||'',
           dateJoining: form.dateJoining||'',
           bankName: form.bankName||'', bankAccount: form.bankAccount||'', ifsc: form.ifsc||''
         };
         if (form.password) all[idx].password = form.password;
         saveUsers(all);
-        logActivity('Updated', 'User', form.name, ROLE_LABELS[form.role] || form.role);
+        logActivity('Updated', 'User', form.name, ROLE_LABELS[all[idx].role] || all[idx].role);
         toast('User updated!', 'success');
         upsertUserToDB(all[idx]);
       }
     } else {
       if (!form.password) {
         toast('Password is required for new users.', 'warning');
+        return;
+      }
+      if (curUserRank <= (ROLE_RANK[form.role] || 0)) {
+        toast('You cannot create a user with a role rank equal to or higher than your own.', 'error');
         return;
       }
       if (all.some(u => u.email.toLowerCase() === form.email.toLowerCase())) {
@@ -180,6 +212,10 @@ export default function Users() {
   }
 
   function toggleExport(u) {
+    if ((ROLE_RANK[session?.role] || 0) <= (ROLE_RANK[u.role] || 0)) {
+      toast('You do not have permission to modify export settings for this user rank.', 'error');
+      return;
+    }
     const all = getAllUsers();
     const idx = all.findIndex(x => x.id === u.id);
     if (idx > -1) {
@@ -195,6 +231,11 @@ export default function Users() {
   async function del(id, name) {
     if (id === session?.id) {
       toast('You cannot delete your own account.', 'error');
+      return;
+    }
+    const target = getAllUsers().find(x => x.id === id);
+    if (target && (ROLE_RANK[session?.role] || 0) <= (ROLE_RANK[target.role] || 0)) {
+      toast('You do not have permission to delete this user rank.', 'error');
       return;
     }
     if (!confirm(`Delete user "${name}" permanently?`)) return;
@@ -420,10 +461,16 @@ export default function Users() {
                       </td>
                       <td>
                         <div className="row-actions">
-                          <button className="btn btn-ghost btn-icon" title="Edit" onClick={() => openEdit(u)}>
-                            <Edit2 size={14} />
-                          </button>
-                          {u.id !== session?.id && (
+                          {((ROLE_RANK[session?.role] || 0) > (ROLE_RANK[u.role] || 0) || u.id === session?.id) ? (
+                            <button className="btn btn-ghost btn-icon" title="Edit" onClick={() => openEdit(u)}>
+                              <Edit2 size={14} />
+                            </button>
+                          ) : (
+                            <span title="Locked (Insufficient rank)" style={{ color: 'var(--text-3)', padding: 6, display: 'inline-flex', alignItems: 'center' }}>
+                              <Lock size={13} />
+                            </span>
+                          )}
+                          {u.id !== session?.id && (ROLE_RANK[session?.role] || 0) > (ROLE_RANK[u.role] || 0) && (
                             <button
                               className="btn btn-ghost btn-icon"
                               style={{ color: 'var(--danger)' }}
@@ -933,6 +980,7 @@ export default function Users() {
             <select
               className="select"
               value={form.role}
+              disabled={editId === session?.id}
               onChange={e => {
                 const newRole = e.target.value;
                 setForm(f => ({
@@ -942,7 +990,7 @@ export default function Users() {
                 }));
               }}
             >
-              {ROLES.map(r => (
+              {ROLES.filter(r => (ROLE_RANK[session?.role] || 0) > (ROLE_RANK[r] || 0) || form.role === r).map(r => (
                 <option key={r} value={r}>{ROLE_LABELS[r] || r}</option>
               ))}
             </select>
@@ -1075,6 +1123,7 @@ export default function Users() {
               <input
                 type="checkbox"
                 checked={form.exportAccess}
+                disabled={editId === session?.id}
                 onChange={e => setForm(f => ({ ...f, exportAccess: e.target.checked }))}
               />
               Allow Data Export / CSV Download
@@ -1110,6 +1159,7 @@ export default function Users() {
                   <input
                     type="checkbox"
                     checked={checked}
+                    disabled={editId === session?.id}
                     onChange={e => {
                       const next = e.target.checked
                         ? [...(form.allowedNav || []), p.key]
@@ -1172,6 +1222,7 @@ export default function Users() {
                           <input
                             type="checkbox"
                             checked={perms[action] || false}
+                            disabled={editId === session?.id}
                             onChange={e => updatePerm(action, e.target.checked)}
                             style={{ width: 15, height: 15, accentColor: action === 'delete' ? 'var(--danger)' : action === 'export' ? 'var(--warning)' : 'var(--primary)', cursor: 'pointer' }}
                           />
