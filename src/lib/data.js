@@ -302,9 +302,9 @@ export async function syncUsersFromDB() {
       zone: u.zone,   // keep legacy field for backward compat
       zones,          // new multi-zone array
       exportAccess: u.export_access,
-      // Always merge ROLE_NAV defaults so new pages (leaves etc) are never blocked
-      allowedNav: u.allowed_nav && u.allowed_nav.length
-        ? [...new Set([...u.allowed_nav, ...(ROLE_NAV[u.role] || [])])]
+      // Support custom permissions/allowedNav overrides from DB
+      allowedNav: u.allowed_nav && Array.isArray(u.allowed_nav)
+        ? u.allowed_nav
         : (ROLE_NAV[u.role] || null),
       permissions: perms,
       // Personal / payroll fields (check columns first, then fallback JSON object)

@@ -30,6 +30,15 @@ const FUNNEL_COLORS = {
 export default function Dashboard() {
   const session = useSession();
   const nav = useNavigate();
+
+  const isRestrictedUser = (sess) => {
+    if (!sess) return false;
+    const r = (sess.role || '').toLowerCase();
+    const d = (sess.dept || '').toLowerCase();
+    return r === 'vigorspace' || r === 'influencer' || d === 'vigorspace' || d === 'vigorspace team' || d === 'influencer' || d === 'influencer team' || d === 'digital' || d === 'digital team';
+  };
+  const isRestricted = isRestrictedUser(session);
+
   const stats = getDashboardStats();
   const fin = getFinanceSummary();
   const log = getActivityLog(8);
@@ -245,11 +254,11 @@ User Query: "${q}"`;
             { label:'Colleges',        value:stats.colleges,    icon:School,      c:'#2563eb', bg:'#eff6ff', to:'/colleges' },
             { label:'Influencers',     value:stats.influencers, icon:Star,        c:'#8b5cf6', bg:'#f5f3ff', to:'/influencers' },
             { label:'Vendors',         value:stats.vendors,     icon:Handshake,   c:'#10b981', bg:'#ecfdf5', to:'/vendors' },
-            { label:'Active Leads',    value:stats.activeLeads||0, icon:Target,   c:'#7c3aed', bg:'#f5f3ff', to:'/leads' },
+            !isRestricted && { label:'Active Leads',    value:stats.activeLeads||0, icon:Target,   c:'#7c3aed', bg:'#f5f3ff', to:'/leads' },
             { label:'Active Tasks',    value:tasks.filter(t=>t.status!=='done').length, icon:CheckSquare, c:'#f59e0b', bg:'#fffbeb', to:'/tasks' },
             { label:'Overdue',         value:stats.overdueTasks, icon:AlertCircle, c:'#ef4444', bg:'#fef2f2', to:'/tasks' },
             { label:'Team Members',    value:stats.users,       icon:Users,       c:'#0ea5e9', bg:'#f0f9ff', to:'/users' },
-          ].map(k => {
+          ].filter(Boolean).map(k => {
             const Icon = k.icon;
             return (
               <div key={k.label} className="kpi-card" style={{'--kpi-accent':k.c,'--kpi-bg':k.bg, cursor:'pointer'}} onClick={() => nav(k.to)}>
@@ -261,110 +270,112 @@ User Query: "${q}"`;
           })}
         </div>
 
-        {/* ROW 2: Revenue Chart + Lead Funnel */}
-        <div className="charts-2" style={{marginBottom:16}}>
-          {/* Revenue & Expense Trend */}
-          <div className="card">
-            <div className="card-header">
-              <div><div className="card-title">Revenue & Expense Trend</div><div className="card-subtitle">Last 6 months overview</div></div>
-              <div style={{display:'flex',gap:14}}>
-                <div style={{display:'flex',alignItems:'center',gap:4,fontSize:'.7rem',color:'var(--text-2)'}}>
-                  <div style={{width:10,height:3,borderRadius:2,background:'#2563eb'}}/> Revenue
-                </div>
-                <div style={{display:'flex',alignItems:'center',gap:4,fontSize:'.7rem',color:'var(--text-2)'}}>
-                  <div style={{width:10,height:3,borderRadius:2,background:'#10b981'}}/> Expense
+        {/* ROW 2: Revenue Chart + Lead Funnel (Hidden for restricted teams) */}
+        {!isRestricted && (
+          <div className="charts-2" style={{marginBottom:16}}>
+            {/* Revenue & Expense Trend */}
+            <div className="card">
+              <div className="card-header">
+                <div><div className="card-title">Revenue & Expense Trend</div><div className="card-subtitle">Last 6 months overview</div></div>
+                <div style={{display:'flex',gap:14}}>
+                  <div style={{display:'flex',alignItems:'center',gap:4,fontSize:'.7rem',color:'var(--text-2)'}}>
+                    <div style={{width:10,height:3,borderRadius:2,background:'#2563eb'}}/> Revenue
+                  </div>
+                  <div style={{display:'flex',alignItems:'center',gap:4,fontSize:'.7rem',color:'var(--text-2)'}}>
+                    <div style={{width:10,height:3,borderRadius:2,background:'#10b981'}}/> Expense
+                  </div>
                 </div>
               </div>
-            </div>
-            <div className="card-body">
-              <div style={{height:240}}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={dynamicRevenueData} margin={{top:5,right:10,left:-10,bottom:0}}>
-                    <defs>
-                      <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#2563eb" stopOpacity={0.15}/>
-                        <stop offset="95%" stopColor="#2563eb" stopOpacity={0}/>
-                      </linearGradient>
-                      <linearGradient id="expGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.1}/>
-                        <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis dataKey="m" tick={{fontSize:11,fill:'#9ca3af'}} axisLine={false} tickLine={false}/>
-                    <YAxis tick={{fontSize:11,fill:'#9ca3af'}} axisLine={false} tickLine={false} tickFormatter={v=>formatINR(v)}/>
-                    <Tooltip contentStyle={{borderRadius:8,border:'1px solid #e5e7eb',boxShadow:'0 4px 12px rgba(0,0,0,.08)'}} formatter={(v,n)=>[formatINR(v),n==='rev'?'Revenue':'Expense']} labelStyle={{fontWeight:700}}/>
-                    <Area type="monotone" dataKey="rev" name="rev" stroke="#2563eb" fill="url(#revGrad)" strokeWidth={2.5} dot={{r:3,fill:'#2563eb'}}/>
-                    <Area type="monotone" dataKey="exp" name="exp" stroke="#10b981" fill="url(#expGrad)" strokeWidth={2} dot={{r:3,fill:'#10b981'}}/>
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-              {/* Finance Summary Footer */}
-              <div className="dash-finance-row">
-                {[
-                  { label:'Total Revenue', value:formatINR(fin.totalRevenue), c:'#2563eb', icon:ArrowUp },
-                  { label:'Total Expense', value:formatINR(fin.totalExpense), c:'#ef4444', icon:ArrowDown },
-                  { label:'Pending Invoices', value:formatINR(fin.pendingInvoice), c:'#f59e0b', icon:Clock },
-                  { label:'Net P&L', value:formatINR(fin.netPL), c: fin.netPL>=0?'#10b981':'#ef4444', icon: fin.netPL>=0?TrendingUp:TrendingDown },
-                ].map(f => {
-                  const FIcon = f.icon;
-                  return (
-                    <div key={f.label} className="dash-finance-item">
-                      <div className="dash-finance-icon"><FIcon size={13} color={f.c}/></div>
-                      <div>
-                        <div className="dash-finance-label">{f.label}</div>
-                        <div className="dash-finance-value" style={{color:f.c}}>{f.value}</div>
+              <div className="card-body">
+                <div style={{height:240}}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={dynamicRevenueData} margin={{top:5,right:10,left:-10,bottom:0}}>
+                      <defs>
+                        <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#2563eb" stopOpacity={0.15}/>
+                          <stop offset="95%" stopColor="#2563eb" stopOpacity={0}/>
+                        </linearGradient>
+                        <linearGradient id="expGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.1}/>
+                          <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                      <XAxis dataKey="m" tick={{fontSize:11,fill:'#9ca3af'}} axisLine={false} tickLine={false}/>
+                      <YAxis tick={{fontSize:11,fill:'#9ca3af'}} axisLine={false} tickLine={false} tickFormatter={v=>formatINR(v)}/>
+                      <Tooltip contentStyle={{borderRadius:8,border:'1px solid #e5e7eb',boxShadow:'0 4px 12px rgba(0,0,0,.08)'}} formatter={(v,n)=>[formatINR(v),n==='rev'?'Revenue':'Expense']} labelStyle={{fontWeight:700}}/>
+                      <Area type="monotone" dataKey="rev" name="rev" stroke="#2563eb" fill="url(#revGrad)" strokeWidth={2.5} dot={{r:3,fill:'#2563eb'}}/>
+                      <Area type="monotone" dataKey="exp" name="exp" stroke="#10b981" fill="url(#expGrad)" strokeWidth={2} dot={{r:3,fill:'#10b981'}}/>
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+                {/* Finance Summary Footer */}
+                <div className="dash-finance-row">
+                  {[
+                    { label:'Total Revenue', value:formatINR(fin.totalRevenue), c:'#2563eb', icon:ArrowUp },
+                    { label:'Total Expense', value:formatINR(fin.totalExpense), c:'#ef4444', icon:ArrowDown },
+                    { label:'Pending Invoices', value:formatINR(fin.pendingInvoice), c:'#f59e0b', icon:Clock },
+                    { label:'Net P&L', value:formatINR(fin.netPL), c: fin.netPL>=0?'#10b981':'#ef4444', icon: fin.netPL>=0?TrendingUp:TrendingDown },
+                  ].map(f => {
+                    const FIcon = f.icon;
+                    return (
+                      <div key={f.label} className="dash-finance-item">
+                        <div className="dash-finance-icon"><FIcon size={13} color={f.c}/></div>
+                        <div>
+                          <div className="dash-finance-label">{f.label}</div>
+                          <div className="dash-finance-value" style={{color:f.c}}>{f.value}</div>
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Lead Pipeline Funnel */}
-          <div className="card">
-            <div className="card-header">
-              <div><div className="card-title">Lead Pipeline</div><div className="card-subtitle">Funnel breakdown</div></div>
-              <button className="btn btn-ghost btn-sm" onClick={()=>nav('/leads')}><Eye size={13}/> View All</button>
-            </div>
-            <div className="card-body">
-              <div className="lead-funnel">
-                {leadFunnel.map(stage => {
-                  const maxVal = Math.max(...leadFunnel.map(s=>s.value), 1);
-                  const pct = Math.max(12, (stage.value / maxVal) * 100);
-                  return (
-                    <div key={stage.key} className="funnel-row" onClick={()=>nav('/leads')}>
-                      <div className="funnel-label">{stage.name}</div>
-                      <div className="funnel-bar-track">
-                        <div className="funnel-bar-fill" style={{width:`${pct}%`, background:stage.color}} />
-                      </div>
-                      <div className="funnel-count" style={{color:stage.color}}>{stage.value}</div>
-                    </div>
-                  );
-                })}
+            {/* Lead Pipeline Funnel */}
+            <div className="card">
+              <div className="card-header">
+                <div><div className="card-title">Lead Pipeline</div><div className="card-subtitle">Funnel breakdown</div></div>
+                <button className="btn btn-ghost btn-sm" onClick={()=>nav('/leads')}><Eye size={13}/> View All</button>
               </div>
-              {/* Win rate + Pipeline value */}
-              <div style={{display:'flex',gap:12,marginTop:14,paddingTop:14,borderTop:'1px solid var(--border)'}}>
-                <div className="dash-mini-stat">
-                  <div className="dash-mini-value" style={{color:'#10b981'}}>{winRate || 0}%</div>
-                  <div className="dash-mini-label">Win Rate</div>
+              <div className="card-body">
+                <div className="lead-funnel">
+                  {leadFunnel.map(stage => {
+                    const maxVal = Math.max(...leadFunnel.map(s=>s.value), 1);
+                    const pct = Math.max(12, (stage.value / maxVal) * 100);
+                    return (
+                      <div key={stage.key} className="funnel-row" onClick={()=>nav('/leads')}>
+                        <div className="funnel-label">{stage.name}</div>
+                        <div className="funnel-bar-track">
+                          <div className="funnel-bar-fill" style={{width:`${pct}%`, background:stage.color}} />
+                        </div>
+                        <div className="funnel-count" style={{color:stage.color}}>{stage.value}</div>
+                      </div>
+                    );
+                  })}
                 </div>
-                <div className="dash-mini-stat">
-                  <div className="dash-mini-value" style={{color:'#2563eb'}}>{formatINR(pipelineValue)}</div>
-                  <div className="dash-mini-label">Pipeline</div>
-                </div>
-                <div className="dash-mini-stat">
-                  <div className="dash-mini-value" style={{color:'#7c3aed'}}>{leads.length}</div>
-                  <div className="dash-mini-label">Total Leads</div>
+                {/* Win rate + Pipeline value */}
+                <div style={{display:'flex',gap:12,marginTop:14,paddingTop:14,borderTop:'1px solid var(--border)'}}>
+                  <div className="dash-mini-stat">
+                    <div className="dash-mini-value" style={{color:'#10b981'}}>{winRate || 0}%</div>
+                    <div className="dash-mini-label">Win Rate</div>
+                  </div>
+                  <div className="dash-mini-stat">
+                    <div className="dash-mini-value" style={{color:'#2563eb'}}>{formatINR(pipelineValue)}</div>
+                    <div className="dash-mini-label">Pipeline</div>
+                  </div>
+                  <div className="dash-mini-stat">
+                    <div className="dash-mini-value" style={{color:'#7c3aed'}}>{leads.length}</div>
+                    <div className="dash-mini-label">Total Leads</div>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* ROW 3: Campaign + Task + Influencer + Lead Source */}
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr',gap:14,marginBottom:16}}>
+        <div style={{display:'grid',gridTemplateColumns:isRestricted ? '1fr 1fr 1fr' : '1fr 1fr 1fr 1fr',gap:14,marginBottom:16}}>
           {/* Campaign Status Donut */}
           <div className="card">
             <div className="card-header"><div className="card-title">Campaign Status</div></div>
@@ -440,38 +451,40 @@ User Query: "${q}"`;
             </div>
           </div>
 
-          {/* Lead Sources */}
-          <div className="card">
-            <div className="card-header"><div className="card-title">Lead Sources</div></div>
-            <div className="card-body" style={{padding:'12px 14px'}}>
-              {sourceChart.length > 0 ? (
-                <>
-                  <div style={{height:140}}>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie data={sourceChart} cx="50%" cy="50%" innerRadius={40} outerRadius={60} dataKey="value" paddingAngle={3}>
-                          {sourceChart.map((e,i)=><Cell key={i} fill={SOURCE_COLORS[i%SOURCE_COLORS.length]} stroke="none"/>)}
-                        </Pie>
-                        <Tooltip/>
-                      </PieChart>
-                    </ResponsiveContainer>
+          {/* Lead Sources (Only for non-restricted users) */}
+          {!isRestricted && (
+            <div className="card">
+              <div className="card-header"><div className="card-title">Lead Sources</div></div>
+              <div className="card-body" style={{padding:'12px 14px'}}>
+                {sourceChart.length > 0 ? (
+                  <>
+                    <div style={{height:140}}>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie data={sourceChart} cx="50%" cy="50%" innerRadius={40} outerRadius={60} dataKey="value" paddingAngle={3}>
+                            {sourceChart.map((e,i)=><Cell key={i} fill={SOURCE_COLORS[i%SOURCE_COLORS.length]} stroke="none"/>)}
+                          </Pie>
+                          <Tooltip/>
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div style={{display:'flex',gap:6,flexWrap:'wrap',justifyContent:'center'}}>
+                      {sourceChart.map((t,i)=>(
+                        <div key={t.name} style={{display:'flex',alignItems:'center',gap:3,fontSize:'.62rem',color:'var(--text-2)'}}>
+                          <div style={{width:7,height:7,borderRadius:'50%',background:SOURCE_COLORS[i%SOURCE_COLORS.length],flexShrink:0}}/> {t.name} ({t.value})
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <div className="center" style={{height:180,color:'var(--text-3)',fontSize:'.82rem',flexDirection:'column',gap:6}}>
+                    <Target size={24} color="var(--border-2)"/>
+                    <span>Add leads to see source distribution</span>
                   </div>
-                  <div style={{display:'flex',gap:6,flexWrap:'wrap',justifyContent:'center'}}>
-                    {sourceChart.map((t,i)=>(
-                      <div key={t.name} style={{display:'flex',alignItems:'center',gap:3,fontSize:'.62rem',color:'var(--text-2)'}}>
-                        <div style={{width:7,height:7,borderRadius:'50%',background:SOURCE_COLORS[i%SOURCE_COLORS.length],flexShrink:0}}/> {t.name} ({t.value})
-                      </div>
-                    ))}
-                  </div>
-                </>
-              ) : (
-                <div className="center" style={{height:180,color:'var(--text-3)',fontSize:'.82rem',flexDirection:'column',gap:6}}>
-                  <Target size={24} color="var(--border-2)"/>
-                  <span>Add leads to see source distribution</span>
-                </div>
-              )}
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* ROW 4: Zone Overview + Activity Feed */}
@@ -548,7 +561,7 @@ User Query: "${q}"`;
         </div>
 
         {/* ROW 5: AI Advisor */}
-        {['founder', 'admin', 'hr', 'operations'].includes(session?.role) && (
+        {!isRestricted && ['founder', 'admin', 'hr', 'operations'].includes(session?.role) && (
           <div className="card" style={{ marginTop: 16 }}>
             <div className="card-header">
               <div>
